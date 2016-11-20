@@ -200,9 +200,11 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     String crystalModelPath = "Crystal1/Crystal1.g3db";
     String suitcaseModelPath = "suitcase/suitcase.g3db";
-    String rocksModelPath = "rocks_02/rocks_02.g3db";
+    //String rocksModelPath = "rocks_02/rocks_02.g3db";
     String gasTankModelPath = "gaz_tank/gaz_tank.g3db";
     String bombModelPath = "bomb/bomb.g3db";
+    String clockBombModelPath = "clock_bomb/clock_bomb.g3db";
+    //String clockBombModelPath = "plastic_barrel/plastic_barrel.g3db";
     String ammoBoxModelPath = "ammo_box/ammo_box.g3db";
     String weaponBoxModelPath = "weapon_box_2/weapon_box.g3db";
 
@@ -212,9 +214,10 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     Model boxModel;
     Model crystalModel;
     Model suitcaseModel;
-    Model rocksModel;
+    //Model rocksModel;
     Model gasTankModel;
     Model bombModel;
+    Model clockBombModel;
     Model ammoBoxModel;
     Model weaponBoxModel;
 
@@ -252,9 +255,10 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         assetManager.load(crystalModelPath, Model.class);
         assetManager.load(suitcaseModelPath, Model.class);
-        assetManager.load(rocksModelPath, Model.class);
+        //assetManager.load(rocksModelPath, Model.class);
         assetManager.load(gasTankModelPath, Model.class);
         assetManager.load(bombModelPath, Model.class);
+        assetManager.load(clockBombModelPath, Model.class);
         assetManager.load(ammoBoxModelPath, Model.class);
         assetManager.load(weaponBoxModelPath, Model.class);
         assetManager.load("ship.g3db", Model.class);
@@ -274,10 +278,10 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 //TextureAttribute.createSpecular(assetManager.get("box1/specular.tga", Texture.class)),
                 ColorAttribute.createDiffuse(Color.WHITE),
                 ColorAttribute.createAmbient(Color.SKY),
-                ColorAttribute.createSpecular(Color.SCARLET),
+                ColorAttribute.createSpecular(Color.WHITE),
                 //new BlendingAttribute(true, 1.0f),
                 //new IntAttribute(IntAttribute.CullFace, GL20.NONE),
-                new FloatAttribute(FloatAttribute.Shininess, 20.0f)
+                new FloatAttribute(FloatAttribute.Shininess, 15.0f)
         );
 
 
@@ -326,28 +330,29 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         boxModel = modelBuilder.createBox(16.0f, 16.0f, 16.0f, boxMaterial, attributes);
         crystalModel = assetManager.get(crystalModelPath, Model.class);
         suitcaseModel = assetManager.get(suitcaseModelPath, Model.class);
-        rocksModel = assetManager.get(rocksModelPath, Model.class);
+        //rocksModel = assetManager.get(rocksModelPath, Model.class);
         gasTankModel = assetManager.get(gasTankModelPath, Model.class);
         bombModel = assetManager.get(bombModelPath, Model.class);
+        clockBombModel = assetManager.get(clockBombModelPath, Model.class);
         ammoBoxModel = assetManager.get(ammoBoxModelPath, Model.class);
         weaponBoxModel = assetManager.get(weaponBoxModelPath, Model.class);
 
         //crystalModel = assetManager.get("ship.g3db", Model.class);
-        sceneManager.add(boxModel, "BOX1").setPosition(-25.0f, -5.0f, 5.0f);
+        sceneManager.add(boxModel, "BOX1").setPosition(-25.0f, -5.0f, 5.0f); // 0
         sceneManager.get("BOX1").setScale(1.25f, 1.25f, 1.25f);
 
-        sceneManager.add(boxModel, "BOX2").setPosition(35.0f, 0.0f, -10.0f);
+        sceneManager.add(boxModel, "BOX2").setPosition(35.0f, 0.0f, -10.0f); // 1
 
-        sceneManager.add(ammoBoxModel, "AMMOBOX1").setPosition(10.0f, -5.0f, -40.0f);
+        sceneManager.add(ammoBoxModel, "AMMOBOX1").setPosition(10.0f, -5.0f, -40.0f); // 2
         sceneManager.get("AMMOBOX1").setScale(0.25f);
 
-        sceneManager.add(crystalModel, "CRYSTAL1").setPosition(10.0f, 15.0f, -100.0f);
+        sceneManager.add(crystalModel, "CRYSTAL1").setPosition(10.0f, 15.0f, -100.0f); // 3
         sceneManager.get("CRYSTAL1").setScale(2.0f);
 
-        sceneManager.add(crystalModel, "CRYSTAL2").setPosition(-50.0f, 40.0f, -90.0f);
+        sceneManager.add(crystalModel, "CRYSTAL2").setPosition(-50.0f, 40.0f, -90.0f); // 4
         sceneManager.get("CRYSTAL2").setScale(2.5f);
 
-        sceneManager.add(suitcaseModel, "SUITCASE1").setPosition(5.0f, 10.0f, 30.0f);
+        sceneManager.add(suitcaseModel, "SUITCASE1").setPosition(5.0f, 10.0f, 30.0f); // 5
         sceneManager.get("SUITCASE1").setScale(0.2f);
 
         {
@@ -360,16 +365,19 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             sceneManager.get("SUITCASE1").refreshOriginalBoundingBox();
         }
 
-        sceneManager.add(rocksModel, "ROCKS1").setPosition(45.0f, 25.0f, 0.0f);
-        sceneManager.get("ROCKS1").setScale(0.2f);
+        //sceneManager.add(rocksModel, "ROCKS1").setPosition(45.0f, 25.0f, 0.0f);
+        //sceneManager.get("ROCKS1").setScale(0.2f);
 
-        sceneManager.add(gasTankModel, "GASTANK1").setPosition(50.0f, 20.0f, -50.0f);
+        sceneManager.add(clockBombModel, "CLOCKBOMB1").setPosition(45.0f, 25.0f, 0.0f); // 6
+        sceneManager.get("CLOCKBOMB1").setScale(0.25f);
+
+        sceneManager.add(gasTankModel, "GASTANK1").setPosition(50.0f, 20.0f, -50.0f); // 7
         sceneManager.get("GASTANK1").setScale(0.2f);
 
-        sceneManager.add(weaponBoxModel, "WEAPONBOX1").setPosition(-55.0f, 0.0f, -35.0f);
+        sceneManager.add(weaponBoxModel, "WEAPONBOX1").setPosition(-55.0f, 0.0f, -35.0f); // 8
         sceneManager.get("WEAPONBOX1").setScale(0.2f);
 
-        sceneManager.add(bombModel, "BOMB1").setPosition(25.0f, 25.0f, -70.0f);
+        sceneManager.add(bombModel, "BOMB1").setPosition(25.0f, 25.0f, -70.0f); // 9
         sceneManager.get("BOMB1").setScale(0.15f);
 
         cameraInputController = new MyCameraInputController(camera);
