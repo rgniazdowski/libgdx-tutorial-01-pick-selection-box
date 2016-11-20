@@ -1,9 +1,6 @@
 package com.flexigame.pickselectiondemogdx;
 
-import com.badlogic.gdx.ApplicationAdapter;
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
-import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.*;
 import com.badlogic.gdx.assets.AssetManager;
 import com.badlogic.gdx.assets.loaders.TextureLoader;
 import com.badlogic.gdx.graphics.*;
@@ -13,6 +10,7 @@ import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
+import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
@@ -26,6 +24,142 @@ import com.flexigame.fg.gfx.SimpleSceneManager;
 import com.flexigame.fg.gfx.SpatialObject;
 
 public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputProcessor {
+
+    //-------------------------------------------------------------------------
+
+    /**
+     * This is an enhanced version of camera input controller. Additional keys
+     * are set for better camera movement - also the way camera is being rotated
+     * is managed differently.
+     */
+    protected static class MyCameraInputController extends CameraInputController {
+
+        public int leftKey = Input.Keys.A;
+        protected boolean leftPressed = false;
+        public int rightKey = Input.Keys.D;
+        protected boolean rightPressed = false;
+        public int upKey = Input.Keys.SPACE;
+        protected boolean upPresed = false;
+        public int downKey = Input.Keys.CONTROL_LEFT;
+        protected boolean downPressed = false;
+
+        protected final Vector3 rightVec = new Vector3();
+        private final Vector3 tmpV1 = new Vector3();
+        private final Vector3 tmpV2 = new Vector3();
+
+        public MyCameraInputController(final Camera camera) {
+            super(camera);
+            rotateLeftKey = Input.Keys.Q;
+            rotateRightKey = Input.Keys.E;
+
+
+            translateTarget = true;
+            forwardTarget = true;
+            scrollTarget = true;
+
+            autoUpdate = true;
+
+            rotateButton = Input.Buttons.RIGHT;
+            translateButton = Input.Buttons.MIDDLE;
+            forwardButton = Input.Buttons.FORWARD;
+
+            translateUnits = 96.0f;
+            rotateAngle = 180.0f;
+        } // MyCameraInputController
+
+        //---------------------------------------------------------------------
+
+        @Override
+        public void update() {
+            final float delta = Gdx.graphics.getDeltaTime();
+            rightVec.set(camera.direction);
+            rightVec.crs(camera.up);
+
+            if (leftPressed) {
+                camera.translate(tmpV1.set(rightVec).scl(-delta * translateUnits));
+                if (translateTarget)
+                    target.add(tmpV1);
+            }
+
+            if (rightPressed) {
+                camera.translate(tmpV1.set(rightVec).scl(delta * translateUnits));
+                if (translateTarget)
+                    target.add(tmpV1);
+            }
+
+            if (upPresed) {
+                camera.translate(tmpV1.set(camera.up).scl(delta * translateUnits));
+                if (translateTarget)
+                    target.add(tmpV1);
+            }
+
+            if (downPressed) {
+                camera.translate(tmpV1.set(camera.up).scl(-delta * translateUnits));
+                if (translateTarget)
+                    target.add(tmpV1);
+            }
+
+            super.update();
+
+            if (upPresed || downPressed || leftPressed || rightPressed) {
+                if (autoUpdate)
+                    camera.update();
+            }
+        } // void update()
+
+        @Override
+        protected boolean process(float deltaX, float deltaY, int button) {
+            if (button == rotateButton) {
+                tmpV1.set(camera.direction).crs(camera.up).y = 0f;
+                camera.rotate(tmpV1.nor(), -deltaY * rotateAngle);
+                //camera.rotate(camera.up, -deltaX * rotateAngle);
+                camera.rotate(Vector3.Y, deltaX * rotateAngle);
+                //camera.rotateAround(target, tmpV1.nor(), deltaY * rotateAngle);
+                //camera.rotateAround(target, Vector3.Y, deltaX * -rotateAngle);
+            } else if (button == translateButton) {
+                camera.translate(tmpV1.set(camera.direction).crs(camera.up).nor().scl(-deltaX * translateUnits));
+                camera.translate(tmpV2.set(camera.up).scl(-deltaY * translateUnits));
+                if (translateTarget) target.add(tmpV1).add(tmpV2);
+            } else if (button == forwardButton) {
+                camera.translate(tmpV1.set(camera.direction).scl(deltaY * translateUnits));
+                if (forwardTarget) target.add(tmpV1);
+            }
+            if (autoUpdate) camera.update();
+            return true;
+            //return super.process(deltaX, deltaY, button);
+        }
+
+        @Override
+        public boolean keyDown(int keycode) {
+            if (keycode == leftKey)
+                leftPressed = true;
+            if (keycode == rightKey)
+                rightPressed = true;
+            if (keycode == upKey)
+                upPresed = true;
+            if (keycode == downKey)
+                downPressed = true;
+            return super.keyDown(keycode);
+        }
+
+        @Override
+        public boolean keyUp(int keycode) {
+            if (keycode == leftKey)
+                leftPressed = false;
+            if (keycode == rightKey)
+                rightPressed = false;
+            if (keycode == upKey)
+                upPresed = false;
+            if (keycode == downKey)
+                downPressed = false;
+            return super.keyUp(keycode);
+        }
+
+        //---------------------------------------------------------------------
+
+    } // static class MyCameraInputController
+
+    //-------------------------------------------------------------------------
 
     protected static final String APP_NAME_ID = "PickSelectionDemo";
     protected static final String APP_TITLE = "Pick Selection Demo X";
