@@ -224,7 +224,10 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     MyCameraInputController cameraInputController;
 
     //-------------------------------------------------------------------------
+
     PickSelection pickSelection;
+    PickSelectionRenderer pickSelectionRenderer;
+    PickSelectionFrameBuffer pickSelectionFBO;
     NinePatch selectionBoxNinePatch;
 
     //-------------------------------------------------------------------------
@@ -292,7 +295,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         pickSelection.setCamera(sceneManager.getCamera());
         pickSelection.setSpatialObjects(sceneManager.getSpatialObjects());
         pickSelection.usePickingBox();
-        //pickSelection.setGroupSelectionMode();
+        pickSelection.setGroupSelectionMode();
         //pickSelection.setToggleSelectionMode();
 
         pickSelection.addOnSelectionListener(new PickSelection.OnSelectionListener() {
@@ -314,7 +317,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         });
 
         ModelBuilder modelBuilder = sceneManager.getModelBuilder();
-
         long attributes = VertexAttributes.Usage.Position;
         attributes |= VertexAttributes.Usage.TextureCoordinates;
         attributes |= VertexAttributes.Usage.Normal;
@@ -377,6 +379,18 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         Gdx.input.setCatchBackKey(true);
         Gdx.input.setInputProcessor(inputMultiplexer);
         assetManager.finishLoading();
+
+        pickSelection.setScreenDimensions(getWidth(), getHeight());
+
+        pickSelectionFBO = new PickSelectionFrameBuffer(getWidth(), getHeight());
+        Gdx.app.debug(APP_NAME_ID, "Finished initializing framebuffer!");
+        pickSelectionRenderer = new PickSelectionRenderer(sceneManager,
+                pickSelection,
+                pickSelectionFBO);
+        Gdx.app.debug(APP_NAME_ID, "Finished initializing pick selection renderer.");
+
+        pickSelection.setCheckFBOPixels(true);
+
     } // void create()
 
     public void loadTextures(TextureLoader.TextureParameter params) {
@@ -461,6 +475,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         sceneManager.render();
 
+        // Draw current pick selection box (and on-screen boxes for all selected objects)
         if (pickSelection.isUsePickingBox() && pickSelection.isPickerActive()) {
             Rectangle pickBox = pickSelection.getPickBox();
             spriteBatch.begin();
@@ -478,15 +493,21 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                     if (!pickingInfo.selected)
                         continue;
                     selectionBoxNinePatch.draw(spriteBatch,
-                     pickingInfo.onScreen.getX(), pickingInfo.onScreen.getY(),
-                     pickingInfo.onScreen.getWidth(), pickingInfo.onScreen.getHeight());
+                            pickingInfo.onScreen.getX(), pickingInfo.onScreen.getY(),
+                            pickingInfo.onScreen.getWidth(), pickingInfo.onScreen.getHeight());
                 }
             } // for each selected object
             spriteBatch.disableBlending();
             spriteBatch.end();
         }
 
+        // Update pick selection buffer + traverse spatial objects
         if (pickSelection.isPickerActive()) {
+            pickSelection.refreshPickBoxDimensions();
+            pickSelectionRenderer.renderToFrameBuffer();
+            pickSelectionRenderer.refreshPixelBuffer();
+            pickSelection.traverse(true);
+            updateObjectsColors(pickSelection.getSelectedObjects());
         }
         //sleep(30); // 30 fps forced
     } // void render()
@@ -501,6 +522,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         assetManager.dispose();
         sceneManager.dispose();
+
+        pickSelectionRenderer.dispose();
     } // void dispose()
 
     @Override
