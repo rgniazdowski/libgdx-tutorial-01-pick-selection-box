@@ -507,7 +507,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         }
 
         // Draw intersection of the picking box with the on-screen box of the selected object
-        if (isKeyPressed(Input.Keys.I) && pickSelection.hasPicked()) {
+        if (isKeyPressed(Input.Keys.I) && pickSelection.hasPicked() && pickSelection.isPickerActive()) {
             spriteBatch.begin();
             Rectangle tmpRectangle = new Rectangle();
             Rectangle pickBox = pickSelection.getPickBox();
@@ -608,12 +608,17 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         }
         if (keycode == Input.Keys.V) {
             Array<GameObject> visibleObjects = sceneManager.getVisibleObjects();
+            System.out.println("There are currently '"+visibleObjects.size+"' visible objects");
             for (int i = 0; i < visibleObjects.size; i++) {
                 System.out.println("Visible object [" + i + "]: '" + visibleObjects.get(i).getName() + "'");
             } // for each visible object
         }
-
-        if (keycode == Input.Keys.B) {
+        boolean noModKeys = true;
+        if(isKeyPressed(Input.Keys.ALT_LEFT) ||
+                isKeyPressed(Input.Keys.SHIFT_LEFT) ||
+                isKeyPressed(Input.Keys.CONTROL_LEFT))
+            noModKeys = false;
+        if (keycode == Input.Keys.B && noModKeys) {
             // Bounding sphere / bounding box
             // 0 - nothing
             // 1 - boxes only
