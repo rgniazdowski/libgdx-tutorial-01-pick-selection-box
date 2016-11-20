@@ -483,6 +483,35 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             spriteBatch.draw(pickSelectionFBO.getTexture(), 0, getHeight(), getWidth(), -getHeight());
             spriteBatch.end();
         }
+
+        // Draw intersection of the picking box with the on-screen box of the selected object
+        if (isKeyPressed(Input.Keys.I) && pickSelection.hasPicked()) {
+            spriteBatch.begin();
+            Rectangle tmpRectangle = new Rectangle();
+            Rectangle pickBox = pickSelection.getPickBox();
+            TextureRegion region = new TextureRegion(pickSelectionFBO.getTexture(), 0.0f, 0.0f, 1.0f, 1.0f);
+            int nSelected = pickSelection.count();
+            for (int sidx = 0; sidx < nSelected; sidx++) {
+
+                PickSelection.rectangleIntersection(tmpRectangle,
+                        pickBox,
+                        pickSelection.getSelectedObjectPickingInfo(sidx).onScreen);
+
+                region.setRegion(
+                        (int) pickSelectionFBO.computePositionX(tmpRectangle.x),
+                        (int) pickSelectionFBO.computePositionY(tmpRectangle.y),
+                        (int) pickSelectionFBO.computePositionX(tmpRectangle.width),
+                        (int) pickSelectionFBO.computePositionY(tmpRectangle.height));
+
+                spriteBatch.draw(region,
+                        tmpRectangle.x,
+                        tmpRectangle.y + tmpRectangle.height,
+                        tmpRectangle.width,
+                        -tmpRectangle.height);
+            }
+            spriteBatch.end();
+        }
+
         // Draw current pick selection box (and on-screen boxes for all selected objects)
         if (pickSelection.isUsePickingBox() && pickSelection.isPickerActive()) {
             Rectangle pickBox = pickSelection.getPickBox();
