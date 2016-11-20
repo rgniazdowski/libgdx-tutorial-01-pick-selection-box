@@ -475,6 +475,14 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         sceneManager.render();
 
+        // Draw framebuffer texture (full screen)
+        if (isKeyPressed(Input.Keys.F) ||
+                isKeyPressed(Input.Keys.MENU) ||
+                isKeyPressed(Input.Keys.BACK)) {
+            spriteBatch.begin();
+            spriteBatch.draw(pickSelectionFBO.getTexture(), 0, getHeight(), getWidth(), -getHeight());
+            spriteBatch.end();
+        }
         // Draw current pick selection box (and on-screen boxes for all selected objects)
         if (pickSelection.isUsePickingBox() && pickSelection.isPickerActive()) {
             Rectangle pickBox = pickSelection.getPickBox();
