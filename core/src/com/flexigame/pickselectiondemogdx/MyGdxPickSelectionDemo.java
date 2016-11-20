@@ -491,6 +491,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         //sleep(30); // 30 fps forced
     } // void render()
 
+    //-------------------------------------------------------------------------
+
     @Override
     public void dispose() {
         Gdx.app.debug(APP_NAME_ID, "dispose() {...}");
@@ -498,7 +500,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         boxModel.dispose();
 
         assetManager.dispose();
-
         sceneManager.dispose();
     } // void dispose()
 
@@ -523,11 +524,60 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         if (keycode == Input.Keys.L) {
             dumpSelection();
         }
+        if (keycode == Input.Keys.V) {
+            Array<GameObject> visibleObjects = sceneManager.getVisibleObjects();
+            for (int i = 0; i < visibleObjects.size; i++) {
+                System.out.println("Visible object [" + i + "]: '" + visibleObjects.get(i).getName() + "'");
+            } // for each visible object
+        }
+
+        if (keycode == Input.Keys.B) {
+            // Bounding sphere / bounding box
+            // 0 - nothing
+            // 1 - boxes only
+            // 2 - spheres only
+            // 3 - both
+            debugDrawCode++;
+            if (debugDrawCode > 3)
+                debugDrawCode = 0;
+            switch (debugDrawCode) {
+                case 0:
+                    sceneManager.setShowBoundingBoxes(false);
+                    sceneManager.setShowBoundingSpheres(false);
+                    break;
+                case 1:
+                    sceneManager.setShowBoundingBoxes(true);
+                    sceneManager.setShowBoundingSpheres(false);
+                    break;
+                case 2:
+                    sceneManager.setShowBoundingBoxes(false);
+                    sceneManager.setShowBoundingSpheres(true);
+                    break;
+                case 3:
+                    sceneManager.setShowBoundingBoxes(true);
+                    sceneManager.setShowBoundingSpheres(true);
+                    break;
+            }
+        }
+
+        if (keycode == Input.Keys.SHIFT_LEFT) {
+            pickSelection.setToggleSelectionMode(true);
+        }
+
+        /*if(keycode == Input.Keys.C) {
+            System.out.println("camera eye {"+camera.position.x+"; "+camera.position.y+"; "+camera.position.z+"}");
+            System.out.println("camera center {"+(camera.position.x + camera.direction.x)
+                    +"; "+(camera.position.y + camera.direction.y)
+                    +"; "+(camera.position.z + camera.direction.z)+"}");
+        }*/
         return false;
     } // boolean keyDown(...)
 
     @Override
     public boolean keyUp(int keycode) {
+        if (keycode == Input.Keys.SHIFT_LEFT) {
+            pickSelection.setToggleSelectionMode(false);
+        }
         return false;
     } // boolean keyUp(...)
 
