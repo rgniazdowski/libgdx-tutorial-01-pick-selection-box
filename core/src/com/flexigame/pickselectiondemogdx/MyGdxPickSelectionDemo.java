@@ -233,6 +233,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     PickSelectionFrameBuffer pickSelectionFBO;
     NinePatch selectionBoxNinePatch;
 
+    Array<Color> diffuseColors;
+
     //-------------------------------------------------------------------------
 
     @Override
@@ -241,6 +243,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         assetManager = new AssetManager();
         Texture.setAssetManager(assetManager);
 
+        diffuseColors = new Array<Color>();
         spriteBatch = new SpriteBatch();
 
         TextureLoader.TextureParameter params = new TextureLoader.TextureParameter();
@@ -399,6 +402,13 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         pickSelection.setCheckFBOPixels(true);
 
+        diffuseColors.ensureCapacity(sceneManager.count() + 1);
+        for (int i = 0; i < sceneManager.count(); i++) {
+            GameObject gameObject = sceneManager.get(i);
+            Color color = new Color(((ColorAttribute) gameObject.materials.get(0).get(ColorAttribute.Diffuse)).color);
+            diffuseColors.add(color);
+        } // for each scene manager object
+
     } // void create()
 
     public void loadTextures(TextureLoader.TextureParameter params) {
@@ -434,7 +444,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         Array<GameObject> gameObjects = sceneManager.getGameObjects();
         for (int i = 0; i < gameObjects.size; i++) {
             GameObject gameObject = gameObjects.get(i);
-            ((ColorAttribute) gameObject.materials.get(0).get(ColorAttribute.Diffuse)).color.set(Color.WHITE);
+            Color color = diffuseColors.get(i); // should match object index in scene manager
+            ((ColorAttribute) gameObject.materials.get(0).get(ColorAttribute.Diffuse)).color.set(color);
         } // for each game object
 
         if (selectedObjects == null)
