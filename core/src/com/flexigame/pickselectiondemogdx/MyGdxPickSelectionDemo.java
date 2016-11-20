@@ -6,22 +6,17 @@ import com.badlogic.gdx.assets.loaders.TextureLoader;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.NinePatch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g3d.Material;
-import com.badlogic.gdx.graphics.g3d.Model;
-import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
-import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g3d.*;
+import com.badlogic.gdx.graphics.g3d.attributes.*;
+import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
-import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
-import com.badlogic.gdx.utils.Array;
-import com.badlogic.gdx.utils.ObjectMap;
-import com.flexigame.fg.gfx.GameObject;
-import com.flexigame.fg.gfx.PickSelection;
-import com.flexigame.fg.gfx.SimpleSceneManager;
-import com.flexigame.fg.gfx.SpatialObject;
+import com.badlogic.gdx.utils.*;
+import com.flexigame.fg.gfx.*;
 
 public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputProcessor {
 
@@ -200,6 +195,29 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     AssetManager assetManager;
     SimpleSceneManager sceneManager;
     Camera camera;
+
+    //-------------------------------------------------------------------------
+
+    String crystalModelPath = "Crystal1/Crystal1.g3db";
+    String suitcaseModelPath = "suitcase/suitcase.g3db";
+    String rocksModelPath = "rocks_02/rocks_02.g3db";
+    String gasTankModelPath = "gaz_tank/gaz_tank.g3db";
+    String bombModelPath = "bomb/bomb.g3db";
+    String ammoBoxModelPath = "ammo_box/ammo_box.g3db";
+    String weaponBoxModelPath = "weapon_box_2/weapon_box.g3db";
+
+    //-------------------------------------------------------------------------
+
+    Material boxMaterial;
+    Model boxModel;
+    Model crystalModel;
+    Model suitcaseModel;
+    Model rocksModel;
+    Model gasTankModel;
+    Model bombModel;
+    Model ammoBoxModel;
+    Model weaponBoxModel;
+
     //-------------------------------------------------------------------------
 
     InputMultiplexer inputMultiplexer;
@@ -208,22 +226,14 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     //-------------------------------------------------------------------------
     PickSelection pickSelection;
     NinePatch selectionBoxNinePatch;
-    Material box1Material;
-    Model box1Model;
-    Camera camera;
-    Vector3[] aabbPoints;
 
     //-------------------------------------------------------------------------
 
     @Override
     public void create() {
+        // adjust properly pick selection buffer
         assetManager = new AssetManager();
         Texture.setAssetManager(assetManager);
-
-        aabbPoints = new Vector3[8];
-        for (int i = 0; i < 8; i++) {
-            aabbPoints[i] = new Vector3();
-        }
 
         spriteBatch = new SpriteBatch();
 
@@ -237,6 +247,15 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         assetManager.load("white.tga", Texture.class); // just white pixels (easier to use)
         assetManager.load("black.tga", Texture.class); // just black pixels
 
+        assetManager.load(crystalModelPath, Model.class);
+        assetManager.load(suitcaseModelPath, Model.class);
+        assetManager.load(rocksModelPath, Model.class);
+        assetManager.load(gasTankModelPath, Model.class);
+        assetManager.load(bombModelPath, Model.class);
+        assetManager.load(ammoBoxModelPath, Model.class);
+        assetManager.load(weaponBoxModelPath, Model.class);
+        assetManager.load("ship.g3db", Model.class);
+
         loadTextures(params);
         selectionBoxNinePatch = new NinePatch(assetManager.get("selectionBox.png", Texture.class), 2, 2, 2, 2);
 
@@ -244,13 +263,18 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         blackTexture = assetManager.get("black.tga", Texture.class);
 
         sceneManager = new SimpleSceneManager();
-        box1Material = new Material(
+
+        boxMaterial = new Material(
                 TextureAttribute.createDiffuse(assetManager.get("box1/diffuse.tga", Texture.class)),
+                //TextureAttribute.createDiffuse(whiteTexture),
                 TextureAttribute.createNormal(assetManager.get("box1/normal.tga", Texture.class)),
-                TextureAttribute.createSpecular(assetManager.get("box1/specular.tga", Texture.class)),
+                //TextureAttribute.createSpecular(assetManager.get("box1/specular.tga", Texture.class)),
                 ColorAttribute.createDiffuse(Color.WHITE),
-                ColorAttribute.createAmbient(Color.WHITE),
-                ColorAttribute.createSpecular(Color.CLEAR)
+                ColorAttribute.createAmbient(Color.SKY),
+                ColorAttribute.createSpecular(Color.SCARLET),
+                //new BlendingAttribute(true, 1.0f),
+                //new IntAttribute(IntAttribute.CullFace, GL20.NONE),
+                new FloatAttribute(FloatAttribute.Shininess, 20.0f)
         );
 
 
@@ -263,6 +287,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         sceneManager.setScreenWidth(getWidth());
         sceneManager.setScreenHeight(getHeight());
+        sceneManager.setFrustumCheckSphere(true);
         pickSelection = new PickSelection();
         pickSelection.setCamera(sceneManager.getCamera());
         pickSelection.setSpatialObjects(sceneManager.getSpatialObjects());
@@ -276,14 +301,14 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                                          PickSelection.PickingInfo pickingInfo,
                                          boolean selected) {
                 String message = "";
-                if(pickingInfo.selected) {
-                    message = "SELECTED ("+selected+")";
+                if (pickingInfo.selected) {
+                    message = "[" + spatialObject.getSpatialObjectID() + "] SELECTED (" + selected + ")";
                 } else {
-                    message = "UNSELECTED ("+selected+")";
+                    message = "[" + spatialObject.getSpatialObjectID() + "] UNSELECTED (" + selected + ")";
                 }
                 GameObject gameObject = sceneManager.get(spatialObject.getSpatialObjectID());
-                if(gameObject != null) {
-                    System.out.println(message+": "+gameObject.getName());
+                if (gameObject != null) {
+                    System.out.println(message + ": " + gameObject.getName());
                 }
             } // void selectionChanged(...)
         });
@@ -295,11 +320,55 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         attributes |= VertexAttributes.Usage.Normal;
         attributes |= VertexAttributes.Usage.Tangent;
         attributes |= VertexAttributes.Usage.BiNormal;
-        box1Model = modelBuilder.createBox(16.0f, 16.0f, 16.0f, box1Material, attributes);
 
-        sceneManager.add(box1Model, "BOX1").setPosition(-16.0f, 0.0f, 5.0f);
+        boxModel = modelBuilder.createBox(16.0f, 16.0f, 16.0f, boxMaterial, attributes);
+        crystalModel = assetManager.get(crystalModelPath, Model.class);
+        suitcaseModel = assetManager.get(suitcaseModelPath, Model.class);
+        rocksModel = assetManager.get(rocksModelPath, Model.class);
+        gasTankModel = assetManager.get(gasTankModelPath, Model.class);
+        bombModel = assetManager.get(bombModelPath, Model.class);
+        ammoBoxModel = assetManager.get(ammoBoxModelPath, Model.class);
+        weaponBoxModel = assetManager.get(weaponBoxModelPath, Model.class);
 
-        sceneManager.add(box1Model, "BOX2").setPosition(32.0f, 0.0f, -10.0f);
+        //crystalModel = assetManager.get("ship.g3db", Model.class);
+        sceneManager.add(boxModel, "BOX1").setPosition(-25.0f, -5.0f, 5.0f);
+        sceneManager.get("BOX1").setScale(1.25f, 1.25f, 1.25f);
+
+        sceneManager.add(boxModel, "BOX2").setPosition(35.0f, 0.0f, -10.0f);
+
+        sceneManager.add(ammoBoxModel, "AMMOBOX1").setPosition(10.0f, -5.0f, -40.0f);
+        sceneManager.get("AMMOBOX1").setScale(0.25f);
+
+        sceneManager.add(crystalModel, "CRYSTAL1").setPosition(10.0f, 15.0f, -100.0f);
+        sceneManager.get("CRYSTAL1").setScale(2.0f);
+
+        sceneManager.add(crystalModel, "CRYSTAL2").setPosition(-50.0f, 40.0f, -90.0f);
+        sceneManager.get("CRYSTAL2").setScale(2.5f);
+
+        sceneManager.add(suitcaseModel, "SUITCASE1").setPosition(5.0f, 10.0f, 30.0f);
+        sceneManager.get("SUITCASE1").setScale(0.2f);
+
+        {
+            Node node1 = sceneManager.get("SUITCASE1").nodes.get(0).getChild(1);
+            BoundingBox boundingBox = new BoundingBox();
+            node1.calculateBoundingBox(boundingBox);
+            node1.rotation.setFromAxis(1.0f, 0.0f, 0.0f, -45.0f);
+            node1.translation.set(0.0f, boundingBox.getDepth() / 4.0f * (float) Math.sqrt(2.0f), 0.0f);
+            node1.calculateTransforms(true);
+            sceneManager.get("SUITCASE1").refreshOriginalBoundingBox();
+        }
+
+        sceneManager.add(rocksModel, "ROCKS1").setPosition(45.0f, 25.0f, 0.0f);
+        sceneManager.get("ROCKS1").setScale(0.2f);
+
+        sceneManager.add(gasTankModel, "GASTANK1").setPosition(50.0f, 20.0f, -50.0f);
+        sceneManager.get("GASTANK1").setScale(0.2f);
+
+        sceneManager.add(weaponBoxModel, "WEAPONBOX1").setPosition(-55.0f, 0.0f, -35.0f);
+        sceneManager.get("WEAPONBOX1").setScale(0.2f);
+
+        sceneManager.add(bombModel, "BOMB1").setPosition(25.0f, 25.0f, -70.0f);
+        sceneManager.get("BOMB1").setScale(0.15f);
 
         cameraInputController = new MyCameraInputController(camera);
         inputMultiplexer = new InputMultiplexer();
@@ -312,14 +381,14 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     public void loadTextures(TextureLoader.TextureParameter params) {
         assetManager.load("box1/normal.tga", Texture.class, params);
-        assetManager.load("box1/specular.tga", Texture.class, params);
+        //assetManager.load("box1/specular.tga", Texture.class, params);
         assetManager.load("box1/diffuse.tga", Texture.class, params);
 
         assetManager.load("selectionBox.png", Texture.class, params);
 
         assetManager.finishLoading(); // this will block the screen!
         Gdx.app.debug(APP_NAME_ID, "Finished loading all assets!");
-    }
+    } // void loadTextures(...)
 
     //-------------------------------------------------------------------------
 
@@ -361,9 +430,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     //-------------------------------------------------------------------------
 
-    Vector3 cameraRightVec = new Vector3();
-    BoundingBox internalAABB = new BoundingBox();
-
     @Override
     public void render() {
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -372,11 +438,26 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         cameraInputController.update();
         final float delta = Gdx.app.getGraphics().getDeltaTime();
 
-        GameObject obj0 = sceneManager.get(0);
-        obj0.rotate(0.5f, 1.0f, 0.75f, 32.0f * delta);
+        sceneManager.get(0).rotate(0.5f, 1.0f, 0.75f, 32.0f * delta);
 
-        GameObject obj1 = sceneManager.get(1);
-        obj1.rotate(0.0f, 1.0f, 0.0f, 24.0f * delta);
+        //GameObject obj1 = sceneManager.get(1);
+        //obj1.rotate(0.0f, 1.0f, 0.0f, 24.0f * delta);
+
+        sceneManager.get(2).rotate(0.25f, 1.0f, 0.25f, -15.0f * delta);
+
+        sceneManager.get(3).rotate(0.25f, 1.0f, 0.1f, 20.0f * delta);
+
+        sceneManager.get(4).rotate(0.5f, 1.0f, 0.15f, -20.0f * delta);
+
+        sceneManager.get(5).rotate(0.0f, 1.0f, 0.0f, 15.0f * delta);
+
+        sceneManager.get(6).rotate(0.2f, 1.0f, 0.0f, 25.0f * delta);
+
+        sceneManager.get(7).rotate(0.1f, 1.0f, 0.1f, -15.0f * delta);
+
+        sceneManager.get(8).rotate(0.1f, 1.0f, 0.1f, 15.0f * delta);
+
+        sceneManager.get(9).rotate(0.25f, 1.0f, 0.5f, -25.0f * delta);
 
         sceneManager.render();
 
@@ -414,7 +495,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     public void dispose() {
         Gdx.app.debug(APP_NAME_ID, "dispose() {...}");
         spriteBatch.dispose();
-        box1Model.dispose();
+        boxModel.dispose();
 
         assetManager.dispose();
 
@@ -434,6 +515,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     } // void resize(...)
 
     //-------------------------------------------------------------------------
+
+    int debugDrawCode = 0;
 
     @Override
     public boolean keyDown(int keycode) {
@@ -534,5 +617,4 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     } // void sleep(int fps)
 
     //-------------------------------------------------------------------------
-
 } // class MyGdxPickSelectionDemo
