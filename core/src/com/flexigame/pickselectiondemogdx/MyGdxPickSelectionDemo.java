@@ -463,6 +463,19 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     //-------------------------------------------------------------------------
 
+    float[][] rotationSpeeds = {
+            {0.50f, 1.0f, 0.75f, 32.0f}, // BOX1
+            {0.00f, 1.0f, 0.00f, 24.0f}, // BOX2
+            {0.25f, 1.0f, 0.25f, -15.0f}, // AMMOBOX1
+            {0.25f, 1.0f, 0.10f, 20.0f}, // CRYSTAL1
+            {0.50f, 1.0f, 0.15f, -20.0f}, // CRYSTAL2
+            {0.00f, 1.0f, 0.00f, 15.0f}, // SUITCASE1
+            {0.25f, 1.0f, 0.25f, 25.0f}, // CLOCKBOMB1
+            {0.15f, 1.0f, 0.15f, -15.0f}, // GASTANK1
+            {0.15f, 1.0f, 0.15f, 15.0f}, // WEAPONBOX1
+            {0.25f, 1.0f, 0.50f, -25.0f} // BOMB1
+    };
+
     @Override
     public void render() {
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -471,26 +484,11 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         cameraInputController.update();
         final float delta = Gdx.app.getGraphics().getDeltaTime();
 
-        sceneManager.get(0).rotate(0.5f, 1.0f, 0.75f, 32.0f * delta);
-
-        //GameObject obj1 = sceneManager.get(1);
-        //obj1.rotate(0.0f, 1.0f, 0.0f, 24.0f * delta);
-
-        sceneManager.get(2).rotate(0.25f, 1.0f, 0.25f, -15.0f * delta);
-
-        sceneManager.get(3).rotate(0.25f, 1.0f, 0.1f, 20.0f * delta);
-
-        sceneManager.get(4).rotate(0.5f, 1.0f, 0.15f, -20.0f * delta);
-
-        sceneManager.get(5).rotate(0.0f, 1.0f, 0.0f, 15.0f * delta);
-
-        sceneManager.get(6).rotate(0.2f, 1.0f, 0.0f, 25.0f * delta);
-
-        sceneManager.get(7).rotate(0.1f, 1.0f, 0.1f, -15.0f * delta);
-
-        sceneManager.get(8).rotate(0.1f, 1.0f, 0.1f, 15.0f * delta);
-
-        sceneManager.get(9).rotate(0.25f, 1.0f, 0.5f, -25.0f * delta);
+        int nObjects = sceneManager.count();
+        for (int i = 0; i < rotationSpeeds.length && i < nObjects; i++) {
+            float[] rot = rotationSpeeds[i];
+            sceneManager.get(i).rotate(rot[0], rot[1], rot[2], rot[3] * delta);
+        } // for each object and rotation speed data
 
         sceneManager.render();
 
