@@ -49,6 +49,7 @@ public class GameObject extends ModelInstance implements SpatialObject {
     protected BoundingBox originalBoundingBox = new BoundingBox();
     protected Vector3 center = new Vector3();
     protected Vector3 extent = new Vector3();
+    protected Vector3 dimensions = new Vector3();
     protected Vector3 scale = new Vector3(1.0f, 1.0f, 1.0f);
     protected Vector3 tmpVec = new Vector3();
     protected float radius = 0.0f;
@@ -63,11 +64,7 @@ public class GameObject extends ModelInstance implements SpatialObject {
 
     public GameObject(Model model) {
         super(model);
-        calculateBoundingBox(boundingBox);
-        originalBoundingBox.set(boundingBox);
-        boundingBox.getCenter(center);
-        boundingBox.getDimensions(extent);
-        extent.scl(0.5f);
+        refreshOriginalBoundingBox();
     }
 
     public GameObject(String name, Model model) {
@@ -77,16 +74,36 @@ public class GameObject extends ModelInstance implements SpatialObject {
 
     public GameObject(Model model, String rootNode, boolean mergeTransform) {
         super(model, rootNode, mergeTransform);
-        calculateBoundingBox(boundingBox);
-        boundingBox.getCenter(center);
-        boundingBox.getDimensions(extent);
-        extent.scl(0.5f);
+        refreshOriginalBoundingBox();
     }
 
     public GameObject(String name, Model model, String rootNode, boolean mergeTransform) {
         this(model, rootNode, mergeTransform);
         this.setName(name);
     }
+
+    //-------------------------------------------------------------------------
+
+    public void refreshOriginalBoundingBox() {
+        // this bounding box can be invalid if nodes are transformed
+        boundingBox.inf();
+        final int n = nodes.size;
+        for (int i = 0; i < n; i++)
+            nodes.get(i).extendBoundingBox(boundingBox, false);
+
+        //calculateBoundingBox(boundingBox);
+        originalBoundingBox.set(boundingBox);
+        boundingBox.getCenter(center);
+        boundingBox.getDimensions(dimensions);
+        extent.set(dimensions);
+        extent.scl(0.5f);
+
+        tmpVec.x = scale.x * extent.x;
+        tmpVec.y = scale.y * extent.y;
+        tmpVec.z = scale.z * extent.z;
+
+        radius = tmpVec.len();
+    } // void refreshOriginalBoundingBox()
 
     //-------------------------------------------------------------------------
 
@@ -138,8 +155,6 @@ public class GameObject extends ModelInstance implements SpatialObject {
         return selfID;
     }
 
-    ;
-
     public void setParentID(int id) {
         this.parentID = id;
     }
@@ -172,6 +187,7 @@ public class GameObject extends ModelInstance implements SpatialObject {
         this.stateFlags.set(StateFlags.VISIBLE, toggle);
     }
 
+    @Override
     public boolean isVisible() {
         return this.stateFlags.isToggled(StateFlags.VISIBLE);
     }
@@ -234,6 +250,13 @@ public class GameObject extends ModelInstance implements SpatialObject {
     }
 
     @Override
+    public void setScale(float _scale) {
+        if (_scale < 0.0f)
+            _scale *= -1.0f;
+        this.setScale(_scale, _scale, _scale);
+    }
+
+    @Override
     public void setScale(float _x, float _y, float _z) {
         isTransformed = true;
         this.transform.getTranslation(tmpVec);
@@ -293,74 +316,15 @@ public class GameObject extends ModelInstance implements SpatialObject {
 
     public void updateBoundingBox(boolean force) {
         if (isTransformed || force) {
-            this.boundingBox.set(this.originalBoundingBox);
-            this.boundingBox.mul(this.transform);
-            //GameObject.transformBoundingBox(this.boundingBox, this.transform);
+            boundingBox.set(originalBoundingBox);
+            boundingBox.mul(transform);
+            boundingBox.getCenter(center);
+            boundingBox.getDimensions(dimensions);
+            extent.set(dimensions);
+            extent.scl(0.5f);
+
             isTransformed = false;
         }
-    }
-
-    private static void transformBoundingBox(BoundingBox box, Matrix4 transform) {
-        Vector3 translation = new Vector3();
-        transform.getTranslation(translation);
-
-        float[] values = transform.getValues();
-        float[][] m = {
-                {0.0f, 0.0f, 0.0f, 0.0f},
-                {0.0f, 0.0f, 0.0f, 0.0f},
-                {0.0f, 0.0f, 0.0f, 0.0f},
-                {0.0f, 0.0f, 0.0f, 0.0f}
-        };
-
-        m[0][0] = values[Matrix4.M00];
-        m[0][1] = values[Matrix4.M01];
-        m[0][2] = values[Matrix4.M02];
-        m[0][3] = values[Matrix4.M03];
-
-        m[1][0] = values[Matrix4.M10];
-        m[1][1] = values[Matrix4.M11];
-        m[1][2] = values[Matrix4.M12];
-        m[1][3] = values[Matrix4.M13];
-
-        m[2][0] = values[Matrix4.M20];
-        m[2][1] = values[Matrix4.M21];
-        m[2][2] = values[Matrix4.M22];
-        m[2][3] = values[Matrix4.M23];
-
-        m[3][0] = values[Matrix4.M30];
-        m[3][1] = values[Matrix4.M31];
-        m[3][2] = values[Matrix4.M32];
-        m[3][3] = values[Matrix4.M33];
-
-        float a, b;
-        int i, j;
-        float[] oldmin = {box.min.x, box.min.y, box.min.z};
-        float[] oldmax = {box.max.x, box.max.y, box.max.z};
-
-        float[] min = {translation.x, translation.y, translation.z};
-        float[] max = {translation.x, translation.y, translation.z};
-
-        for (j = 0; j < 3; j++) {
-            for (i = 0; i < 3; i++) {
-                a = m[i][j] * oldmin[i];
-                b = m[i][j] * oldmax[i];
-                if (a < b) {
-                    min[j] += a;
-                    max[j] += b;
-                } else {
-                    min[j] += b;
-                    max[j] += a;
-                }
-            }
-        }
-
-        box.min.x = min[0];
-        box.min.y = min[1];
-        box.min.z = min[2];
-
-        box.max.x = max[0];
-        box.max.y = max[1];
-        box.max.z = max[2];
     }
 
     public void update() {

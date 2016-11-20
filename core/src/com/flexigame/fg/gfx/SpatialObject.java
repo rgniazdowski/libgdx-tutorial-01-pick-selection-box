@@ -14,6 +14,8 @@ public interface SpatialObject {
     BoundingBox getBoundingBox();
     BoundingBox getOriginalBoundingBox();
 
+    boolean isVisible();
+
     Vector3 getExtent();
     Vector3 getCenter();
     float getRadius();
@@ -24,6 +26,7 @@ public interface SpatialObject {
     void setPosition(float _x, float _y, float _z);
     Vector3 getPosition();
 
+    void setScale(float _scale);
     void setScale(float _x, float _y, float _z);
     Vector3 getScale();
 } // interface SpatialObject
