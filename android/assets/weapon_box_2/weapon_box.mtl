@@ -1,0 +1,16 @@
+newmtl material0
+	Ns 10.0000
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000
+	illum 2
+	Ka 0.9000 0.9000 0.9000
+	Kd 0.95000 0.9500 0.9500
+	Ks 1.0000 1.0000 1.0000
+	Ke 0.0000 0.1000 0.1000
+	map_Ka diffuse_sand.tga
+	map_Kd diffuse_sand.tga
+	map_Bump normal.tga
+	bump normal.tga
+
