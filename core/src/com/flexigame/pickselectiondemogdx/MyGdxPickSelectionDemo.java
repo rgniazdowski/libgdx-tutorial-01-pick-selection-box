@@ -491,11 +491,16 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         } // for each object and rotation speed data
 
         sceneManager.render();
-
+        boolean showFrameBufferTexture = false;
+        if (isKeyPressed(Input.Keys.F)) {
+            showFrameBufferTexture = true;
+        }
+        if (Gdx.app.getType() == Application.ApplicationType.Android &&
+                (isKeyPressed(Input.Keys.MENU) || isKeyPressed(Input.Keys.BACK))) {
+            showFrameBufferTexture = true;
+        }
         // Draw framebuffer texture (full screen)
-        if (isKeyPressed(Input.Keys.F) ||
-                isKeyPressed(Input.Keys.MENU) ||
-                isKeyPressed(Input.Keys.BACK)) {
+        if (showFrameBufferTexture) {
             spriteBatch.begin();
             spriteBatch.draw(pickSelectionFBO.getTexture(), 0, getHeight(), getWidth(), -getHeight());
             spriteBatch.end();
