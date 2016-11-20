@@ -1,12 +1,16 @@
 package com.flexigame.fg.gfx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g3d.*;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.DirectionalLightsAttribute;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 
@@ -22,9 +26,11 @@ public class SimpleSceneManager implements Disposable {
     private PerspectiveCamera camera;
     private ModelBatch modelBatch;
     private ModelBuilder modelBuilder;
+    private ShapeRenderer shapeRenderer;
     private int screenWidth;
     private int screenHeight;
     private String rootName;
+    private Vector3 tmpVec;
 
     public enum StateFlags {
         NONE,
@@ -38,13 +44,17 @@ public class SimpleSceneManager implements Disposable {
         FRUSTUM_CHECK_SPHERE,
         OCCLUSION_CHECK,
         SHOW_GROUND_GRID,
-        SKYBOX_FOLLOWS_CAMERA
+        SKYBOX_FOLLOWS_CAMERA,
+        SHOW_BOUNDING_SPHERES,
+        SHOW_BOUNDING_BOXES
     } // enum StateFlags
 
     private EnumSet<StateFlags> stateFlags;
     /** **/
     private Array<GameObject> gameObjects;
     private Array<SpatialObject> spatialObjects;
+    /** **/
+    private Array<GameObject> visibleObjects;
 
     /**
      *
@@ -57,23 +67,33 @@ public class SimpleSceneManager implements Disposable {
         this.environment.set(new ColorAttribute(ColorAttribute.AmbientLight,
                 0.75f, 0.75f, 0.8f, 1.0f));
 
-        this.directionalLight = new DirectionalLight().set(0.8f, 0.8f, 0.9f, -0.75f, -0.45f, -0.1f);
+        this.directionalLight = new DirectionalLight().
+                set(0.8f, 0.8f, 0.9f, -0.75f, -0.45f, -0.1f);
+
         this.environment.add(directionalLight);
 
-        this.camera = new PerspectiveCamera(67, screenWidth, screenHeight);
+        this.camera = new PerspectiveCamera(70, screenWidth, screenHeight);
         this.camera.position.set(0.0f, 0.0f, 0.0f);
         this.camera.lookAt(0.0f, 0.0f, 0.0f);
         this.camera.near = 1.0f;
         this.camera.far = 512.0f;
         this.camera.update();
 
+        this.shapeRenderer = new ShapeRenderer();
+
         this.modelBuilder = new ModelBuilder();
         this.modelBatch = new ModelBatch();
 
         this.gameObjects = new Array<GameObject>();
+        this.gameObjects.ensureCapacity(16);
         this.spatialObjects = new Array<SpatialObject>();
+        this.spatialObjects.ensureCapacity(16);
+        this.visibleObjects = new Array<GameObject>();
+        this.visibleObjects.ensureCapacity(16);
 
         this.stateFlags = EnumSet.of(StateFlags.LINEAR_TRAVERSE);
+
+        this.tmpVec = new Vector3();
     }
 
     public void deleteAll() {
@@ -84,6 +104,7 @@ public class SimpleSceneManager implements Disposable {
     @Override
     public void dispose() {
         this.deleteAll();
+        this.shapeRenderer.dispose();
         this.modelBatch.dispose();
         // dispose manually
         // Model
@@ -154,6 +175,14 @@ public class SimpleSceneManager implements Disposable {
 
     public boolean isSkyboxFollowsCamera() {
         return isFlagActive(StateFlags.SKYBOX_FOLLOWS_CAMERA);
+    }
+
+    public boolean isShowBoundingSpheres() {
+        return isFlagActive(StateFlags.SHOW_BOUNDING_SPHERES);
+    }
+
+    public boolean isShowBoundingBoxes() {
+        return isFlagActive(StateFlags.SHOW_BOUNDING_BOXES);
     }
 
     //-------------------------------------------------------------------------
@@ -234,6 +263,14 @@ public class SimpleSceneManager implements Disposable {
     public void setSkyboxFollowsCamera(boolean toggle) {
         this.setFlag(StateFlags.SKYBOX_FOLLOWS_CAMERA, toggle);
     }
+
+    public void setShowBoundingSpheres(boolean toggle) {
+        this.setFlag(StateFlags.SHOW_BOUNDING_SPHERES, toggle);
+    }
+
+    public void setShowBoundingBoxes(boolean toggle) {
+        this.setFlag(StateFlags.SHOW_BOUNDING_BOXES, toggle);
+    }
     //-------------------------------------------------------------------------
 
     public Environment getEnvironment() {
@@ -272,6 +309,10 @@ public class SimpleSceneManager implements Disposable {
         return gameObjects;
     }
 
+    public Array<GameObject> getVisibleObjects() {
+        return visibleObjects;
+    }
+
     public Array<SpatialObject> getSpatialObjects() {
         return spatialObjects;
     }
@@ -282,6 +323,12 @@ public class SimpleSceneManager implements Disposable {
 
     public boolean isEmpty() {
         return (this.count() == 0);
+    }
+
+    public boolean isVisible(GameObject gameObject) {
+        if (gameObject == null)
+            return false;
+        return visibleObjects.contains(gameObject, true);
     }
 
     //-------------------------------------------------------------------------
@@ -441,25 +488,87 @@ public class SimpleSceneManager implements Disposable {
     //-------------------------------------------------------------------------
 
     public void update() {
-        linearTraverse(true);
+        linearTraverse();
     }
 
     public void render() {
         //Gdx.gl.glCullFace(GL20.GL_FRONT);
         this.modelBatch.begin(this.camera);
         if (this.isLinearTraverse())
-            linearTraverse(false);
+            linearTraverse();
         this.modelBatch.end();
         //Gdx.gl.glCullFace(GL20.GL_BACK);
+        if(!isShowBoundingBoxes() && !isShowBoundingSpheres())
+            return;
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(true);
+        Vector3 center;
+        for (int i = 0; i < visibleObjects.size; i++) {
+            GameObject gameObject = visibleObjects.get(i);
+            center = gameObject.center;
+            if(isShowBoundingBoxes()) {
+                shapeRenderer.setColor(Color.FIREBRICK);
+                shapeRenderer.box(
+                        center.x - gameObject.extent.x,
+                        center.y - gameObject.extent.y,
+                        center.z + gameObject.extent.z,
+                        //gameObject.transform.val[12] - gameObject.extent.x, // 12 / M03
+                        //gameObject.transform.val[13] - gameObject.extent.y, // 13 / M13
+                        //gameObject.transform.val[14] + gameObject.extent.z, // 14 / M23
+                        gameObject.dimensions.x,
+                        gameObject.dimensions.y,
+                        gameObject.dimensions.z
+                );
+            }
+            if(isShowBoundingSpheres()) {
+                shapeRenderer.setColor(Color.SCARLET);
+                shapeRenderer.translate(center.x, center.y, center.z);
+                int segments = Math.max(6, (int) (10 * (float) Math.cbrt(gameObject.radius)));
+                shapeRenderer.circle(0.0f, 0.0f, gameObject.radius, segments);
+                shapeRenderer.rotate(0.0f, 1.0f, 0.0f, 45.0f);
+                shapeRenderer.circle(0.0f, 0.0f, gameObject.radius, segments);
+                shapeRenderer.rotate(0.0f, 1.0f, 0.0f, 45.0f);
+                shapeRenderer.circle(0.0f, 0.0f, gameObject.radius, segments);
+                shapeRenderer.rotate(0.0f, 1.0f, 0.0f, 45.0f);
+                shapeRenderer.circle(0.0f, 0.0f, gameObject.radius, segments);
+                shapeRenderer.rotate(0.0f, 1.0f, 0.0f, -135.0f);
+                shapeRenderer.rotate(1.0f, 0.0f, 0.0f, 90.0f);
+                shapeRenderer.circle(0.0f, 0.0f, gameObject.radius, segments);
+                shapeRenderer.rotate(1.0f, 0.0f, 0.0f, -90.0f);
+                shapeRenderer.translate(-center.x, -center.y, -center.z);
+            }
+        } // for each visible game object
+        shapeRenderer.end();
+    } // void render()
+
+    public boolean checkVisibilitySphere(GameObject gameObject) {
+        if (gameObject == null)
+            throw new NullPointerException("gameObject cannot be null");
+        return this.camera.frustum.sphereInFrustum(gameObject.center, gameObject.radius);
+    } // boolean checkVisibilitySphere(...)
+
+    public boolean checkVisibilityBox(GameObject gameObject) {
+        return this.camera.frustum.boundsInFrustum(gameObject.center, gameObject.dimensions);
     }
 
-    protected void linearTraverse(boolean updateOnly) {
-        final int numObjects = this.gameObjects.size;
+    protected void linearTraverse() {
+        final int numObjects = gameObjects.size;
+        visibleObjects.clear();
         for (int i = 0; i < numObjects; i++) {
-            GameObject gameObject = this.gameObjects.get(i);
+            GameObject gameObject = gameObjects.get(i);
             gameObject.update();
-            if (!updateOnly && gameObject.isVisible())
-                this.modelBatch.render(this.gameObjects.get(i), this.environment);
+
+            if (isFrustumCheckBox())
+                gameObject.setVisible(checkVisibilityBox(gameObject));
+            else if (isFrustumCheckSphere())
+                gameObject.setVisible(checkVisibilitySphere(gameObject));
+
+            if (gameObject.isVisible()) {
+                visibleObjects.add(gameObject);
+                modelBatch.render(gameObject, environment);
+            }
         } // for each game object in scene
     } // void linearTraverse(...)
 
