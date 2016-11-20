@@ -199,6 +199,13 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     SpriteBatch spriteBatch;
     AssetManager assetManager;
     SimpleSceneManager sceneManager;
+    Camera camera;
+    //-------------------------------------------------------------------------
+
+    InputMultiplexer inputMultiplexer;
+    MyCameraInputController cameraInputController;
+
+    //-------------------------------------------------------------------------
     PickSelection pickSelection;
     NinePatch selectionBoxNinePatch;
     Material box1Material;
@@ -236,6 +243,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         whiteTexture = assetManager.get("white.tga", Texture.class);
         blackTexture = assetManager.get("black.tga", Texture.class);
 
+        sceneManager = new SimpleSceneManager();
         box1Material = new Material(
                 TextureAttribute.createDiffuse(assetManager.get("box1/diffuse.tga", Texture.class)),
                 TextureAttribute.createNormal(assetManager.get("box1/normal.tga", Texture.class)),
@@ -245,10 +253,12 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 ColorAttribute.createSpecular(Color.CLEAR)
         );
 
-        sceneManager = new SimpleSceneManager();
+
         camera = sceneManager.getCamera();
-        camera.position.set(0.0f, 0.0f, 64.0f);
-        camera.lookAt(0.0f, 0.0f, 0.0f);
+        camera.position.set(-92.0f, 64.0f, 36.0f);
+        camera.far = 1024.0f;
+        //camera.lookAt(0.0f, 0.0f, 16.0f);
+        camera.lookAt(10.0f, -8.0f, -48.0f);
         camera.update();
 
         sceneManager.setScreenWidth(getWidth());
@@ -291,8 +301,13 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         sceneManager.add(box1Model, "BOX2").setPosition(32.0f, 0.0f, -10.0f);
 
+        cameraInputController = new MyCameraInputController(camera);
+        inputMultiplexer = new InputMultiplexer();
+        inputMultiplexer.addProcessor(this);
+        inputMultiplexer.addProcessor(cameraInputController);
         Gdx.input.setCatchBackKey(true);
-        Gdx.input.setInputProcessor(this);
+        Gdx.input.setInputProcessor(inputMultiplexer);
+        assetManager.finishLoading();
     } // void create()
 
     public void loadTextures(TextureLoader.TextureParameter params) {
@@ -354,6 +369,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
+        cameraInputController.update();
         final float delta = Gdx.app.getGraphics().getDeltaTime();
 
         GameObject obj0 = sceneManager.get(0);
@@ -389,52 +405,14 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             spriteBatch.end();
         }
 
-        if (isKeyPressed(Input.Keys.W)) {
-            camera.position.mulAdd(camera.direction, 64.0f * delta);
-            camera.update();
+        if (pickSelection.isPickerActive()) {
         }
-        if (isKeyPressed(Input.Keys.S)) {
-            //camera.translate(0.0f, 0.0f, 64.0f * delta);
-            camera.position.mulAdd(camera.direction, -64.0f * delta);
-            camera.update();
-        }
-        if (isKeyPressed(Input.Keys.A)) {
-            cameraRightVec.set(camera.direction);
-            cameraRightVec.crs(0.0f, 1.0f, 0.0f);
-            camera.position.mulAdd(cameraRightVec, -64.0f * delta);
-            camera.update();
-        }
-        if (isKeyPressed(Input.Keys.D)) {
-            cameraRightVec.set(camera.direction);
-            cameraRightVec.crs(0.0f, 1.0f, 0.0f);
-            camera.position.mulAdd(cameraRightVec, 64.0f * delta);
-            camera.update();
-        }
-        if (isKeyPressed(Input.Keys.SPACE)) {
-            camera.translate(0.0f, 64.0f * delta, 0.0f);
-            camera.update();
-        }
-        if (isKeyPressed(Input.Keys.CONTROL_LEFT)) {
-            camera.translate(0.0f, -64.0f * delta, 0.0f);
-            camera.update();
-        }
-
-        if (isKeyPressed(Input.Keys.LEFT)) {
-
-        }
-        if (isKeyPressed(Input.Keys.RIGHT)) {
-
-        }
-        if (isKeyPressed(Input.Keys.UP)) {
-
-        }
-        if (isKeyPressed(Input.Keys.DOWN)) {
-
-        }
+        //sleep(30); // 30 fps forced
     } // void render()
 
     @Override
     public void dispose() {
+        Gdx.app.debug(APP_NAME_ID, "dispose() {...}");
         spriteBatch.dispose();
         box1Model.dispose();
 
@@ -445,10 +423,15 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     @Override
     public void resize(int width, int height) {
+        Gdx.app.debug(APP_NAME_ID, "resize(width=" + width + ", height=" + height + ") {...}");
         super.resize(width, height);
-        sceneManager.setScreenWidth(width);
-        sceneManager.setScreenHeight(height);
-    }
+        if (sceneManager != null) {
+            sceneManager.setScreenWidth(width);
+            sceneManager.setScreenHeight(height);
+        }
+        if (pickSelection != null)
+            pickSelection.setScreenDimensions(width, height);
+    } // void resize(...)
 
     //-------------------------------------------------------------------------
 
@@ -500,8 +483,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         if (button == 0) {
             pickSelection.setPickerCoord(screenX, screenY);
             pickSelection.click();
-            pickSelection.traverse(true);
-            updateObjectsColors(pickSelection.getSelectedObjects());
         }
         return false;
     }
@@ -511,8 +492,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         if (button == 0) {
             pickSelection.setPickerCoord(screenX, screenY);
             pickSelection.unclick();
-            pickSelection.traverse(true);
-            updateObjectsColors(pickSelection.getSelectedObjects());
         }
         return false;
     }
@@ -521,26 +500,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     public boolean touchDragged(int screenX, int screenY, int pointer) {
         if (pickSelection.isPickerActive()) {
             pickSelection.setPickerCoord(screenX, screenY);
-            pickSelection.traverse(true);
-            updateObjectsColors(pickSelection.getSelectedObjects());
-        } else {
-            int diffX = Gdx.input.getDeltaX();
-            int diffY = Gdx.input.getDeltaY();
-
-            float maxDiff = (float) Math.max(Math.abs(diffX), Math.abs(diffY));
-
-            float axisY = 0.0f;
-            if (maxDiff != 0.0f)
-                axisY = (float) diffX / maxDiff;
-            float axisX = 0.0f;
-            if (maxDiff != 0.0f)
-                axisX = (float) diffY / maxDiff;
-
-            //System.out.println("X: " + axisX + " | Y: " + axisY);
-            if(maxDiff != 0.0f) {
-                camera.rotate(0.75f, axisX, axisY, 0.0f);
-                camera.update();
-            }
         }
         wasDragged = true;
         return false;
@@ -557,4 +516,23 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     }
 
     //-------------------------------------------------------------------------
+
+    private long _t_diff = 0, _t_start = 0;
+
+    public void sleep(int fps) {
+        if (fps > 0) {
+            _t_diff = TimeUtils.millis() - _t_start;
+            long targetDelay = 1000 / fps;
+            if (_t_diff < targetDelay) {
+                try {
+                    Thread.sleep(targetDelay - _t_diff);
+                } catch (InterruptedException e) {
+                }
+            }
+            _t_start = TimeUtils.millis();
+        }
+    } // void sleep(int fps)
+
+    //-------------------------------------------------------------------------
+
 } // class MyGdxPickSelectionDemo
