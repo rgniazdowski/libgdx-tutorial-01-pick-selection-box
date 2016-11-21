@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
+import com.flexigame.fg.utils.AbstractFlags;
 
 import java.util.EnumSet;
 
@@ -32,24 +33,57 @@ public class SimpleSceneManager implements Disposable {
     private String rootName;
     private Vector3 tmpVec;
 
-    public enum StateFlags {
-        NONE,
-        LINEAR_TRAVERSE,
-        IGNORE_COLLISIONS,
-        HIDE_NODES,
-        HIDE_SKYBOX,
-        HIDE_SHADOWS,
-        HIDE_ALL,
-        FRUSTUM_CHECK_BOX,
-        FRUSTUM_CHECK_SPHERE,
-        OCCLUSION_CHECK,
-        SHOW_GROUND_GRID,
-        SKYBOX_FOLLOWS_CAMERA,
-        SHOW_BOUNDING_SPHERES,
-        SHOW_BOUNDING_BOXES
+    public static final class StateFlags extends AbstractFlags {
+        static final int NO_FLAGS = 0;
+        static final int LINEAR_TRAVERSE = 1;
+        static final int IGNORE_COLLISIONS = 2;
+        static final int HIDE_NODES = 4;
+        static final int HIDE_SKYBOX = 8;
+        static final int HIDE_SHADOWS = 16;
+        static final int HIDE_ALL = HIDE_NODES + HIDE_SHADOWS + HIDE_SKYBOX;
+        static final int FRUSTUM_CHECK_BOX = 32;
+        static final int FRUSTUM_CHECK_SPHERE = 64;
+        static final int OCCLUSION_CHECK = 128;
+        static final int SHOW_GROUND_GRID = 256;
+        static final int SKYBOX_FOLLOWS_CAMERA = 512;
+        static final int SHOW_BOUNDING_SPHERES = 1024;
+        static final int SHOW_BOUNDING_BOXES = 2048;
+
+        public static final int[] values = {NO_FLAGS,
+                LINEAR_TRAVERSE,
+                IGNORE_COLLISIONS,
+                HIDE_NODES,
+                HIDE_SKYBOX,
+                HIDE_SHADOWS,
+                HIDE_ALL,
+                FRUSTUM_CHECK_BOX,
+                FRUSTUM_CHECK_SPHERE,
+                OCCLUSION_CHECK,
+                SHOW_GROUND_GRID,
+                SKYBOX_FOLLOWS_CAMERA,
+                SHOW_BOUNDING_SPHERES,
+                SHOW_BOUNDING_BOXES};
+
+        public StateFlags() {
+            super();
+        }
+
+        public StateFlags(int value) {
+            super(value);
+        }
+
+        @Override
+        public int count() {
+            return values.length;
+        }
+
+        @Override
+        public int[] getValues() {
+            return values;
+        }
     } // enum StateFlags
 
-    private EnumSet<StateFlags> stateFlags;
+    private final StateFlags stateFlags = new StateFlags(StateFlags.LINEAR_TRAVERSE);
     /** **/
     private Array<GameObject> gameObjects;
     private Array<SpatialObject> spatialObjects;
@@ -91,8 +125,6 @@ public class SimpleSceneManager implements Disposable {
         this.visibleObjects = new Array<GameObject>();
         this.visibleObjects.ensureCapacity(16);
 
-        this.stateFlags = EnumSet.of(StateFlags.LINEAR_TRAVERSE);
-
         this.tmpVec = new Vector3();
     }
 
@@ -112,77 +144,67 @@ public class SimpleSceneManager implements Disposable {
     }
     //-------------------------------------------------------------------------
 
-    protected void setFlag(StateFlags flag, boolean toggle) {
-        if (flag != StateFlags.NONE && toggle == false)
-            this.stateFlags.remove(flag);
-        else if (toggle && !this.stateFlags.contains(flag))
-            this.stateFlags.add(flag);
-        else if (flag == StateFlags.NONE)
-            this.stateFlags = EnumSet.of(StateFlags.NONE);
+    public void resetFlags() {
+        this.stateFlags.reset();
     }
 
-    public boolean isFlagActive(StateFlags flag) {
-        return this.stateFlags.contains(flag);
-    }
+    //-------------------------------------------------------------------------
 
     public boolean isLinearTraverse() {
-        return isFlagActive(StateFlags.LINEAR_TRAVERSE);
+        return stateFlags.isToggled(StateFlags.LINEAR_TRAVERSE);
     }
 
     public boolean isIgnoreCollisions() {
-        return isFlagActive(StateFlags.IGNORE_COLLISIONS);
+        return stateFlags.isToggled(StateFlags.IGNORE_COLLISIONS);
     }
 
     public boolean isHideNodes() {
-        return isFlagActive(StateFlags.HIDE_NODES);
+        return stateFlags.isToggled(StateFlags.HIDE_NODES);
     }
 
     public boolean isHideSkybox() {
-        return isFlagActive(StateFlags.HIDE_SKYBOX);
+        return stateFlags.isToggled(StateFlags.HIDE_SKYBOX);
     }
 
     public boolean isHideShadows() {
-        return isFlagActive(StateFlags.HIDE_SHADOWS);
+        return stateFlags.isToggled(StateFlags.HIDE_SHADOWS);
     }
 
     public boolean isHideAll() {
-        boolean hideRest = (isFlagActive(StateFlags.HIDE_NODES) ||
-                isFlagActive(StateFlags.HIDE_SHADOWS) ||
-                isFlagActive(StateFlags.HIDE_SKYBOX));
-        return (isFlagActive(StateFlags.HIDE_ALL) || hideRest);
+        return stateFlags.isToggled(StateFlags.HIDE_ALL);
     }
 
     public boolean isFrustumCheckBox() {
-        return isFlagActive(StateFlags.FRUSTUM_CHECK_BOX);
+        return stateFlags.isToggled(StateFlags.FRUSTUM_CHECK_BOX);
     }
 
     public boolean isFrustumCheckSphere() {
-        return isFlagActive(StateFlags.FRUSTUM_CHECK_SPHERE);
+        return stateFlags.isToggled(StateFlags.FRUSTUM_CHECK_SPHERE);
     }
 
     public boolean isFrustumCheck() {
-        return (isFlagActive(StateFlags.FRUSTUM_CHECK_BOX) ||
-                isFlagActive(StateFlags.FRUSTUM_CHECK_SPHERE));
+        return (stateFlags.isToggled(StateFlags.FRUSTUM_CHECK_BOX) ||
+                stateFlags.isToggled(StateFlags.FRUSTUM_CHECK_SPHERE));
     }
 
     public boolean isOcclusionCheck() {
-        return isFlagActive(StateFlags.OCCLUSION_CHECK);
+        return stateFlags.isToggled(StateFlags.OCCLUSION_CHECK);
     }
 
     public boolean isShowGroundGrid() {
-        return isFlagActive(StateFlags.SHOW_GROUND_GRID);
+        return stateFlags.isToggled(StateFlags.SHOW_GROUND_GRID);
     }
 
     public boolean isSkyboxFollowsCamera() {
-        return isFlagActive(StateFlags.SKYBOX_FOLLOWS_CAMERA);
+        return stateFlags.isToggled(StateFlags.SKYBOX_FOLLOWS_CAMERA);
     }
 
     public boolean isShowBoundingSpheres() {
-        return isFlagActive(StateFlags.SHOW_BOUNDING_SPHERES);
+        return stateFlags.isToggled(StateFlags.SHOW_BOUNDING_SPHERES);
     }
 
     public boolean isShowBoundingBoxes() {
-        return isFlagActive(StateFlags.SHOW_BOUNDING_BOXES);
+        return stateFlags.isToggled(StateFlags.SHOW_BOUNDING_BOXES);
     }
 
     //-------------------------------------------------------------------------
@@ -208,68 +230,59 @@ public class SimpleSceneManager implements Disposable {
     //-------------------------------------------------------------------------
 
     public void setLinearTraverse(boolean toggle) {
-        this.setFlag(StateFlags.LINEAR_TRAVERSE, toggle);
+        stateFlags.set(StateFlags.LINEAR_TRAVERSE, toggle);
     }
 
     public void setIgnoreCollisions(boolean toggle) {
-        this.setFlag(StateFlags.IGNORE_COLLISIONS, toggle);
+        stateFlags.set(StateFlags.IGNORE_COLLISIONS, toggle);
     }
 
     public void setHideNodes(boolean toggle) {
-        this.setFlag(StateFlags.LINEAR_TRAVERSE, toggle);
-        if (!toggle)
-            this.setFlag(StateFlags.HIDE_ALL, false);
+        stateFlags.set(StateFlags.HIDE_NODES, toggle);
     }
 
     public void setHideSkybox(boolean toggle) {
-        this.setFlag(StateFlags.LINEAR_TRAVERSE, toggle);
-        if (!toggle)
-            this.setFlag(StateFlags.HIDE_ALL, false);
+        stateFlags.set(StateFlags.LINEAR_TRAVERSE, toggle);
     }
 
     public void setHideShadows(boolean toggle) {
-        this.setFlag(StateFlags.HIDE_SHADOWS, toggle);
-        if (!toggle)
-            this.setFlag(StateFlags.HIDE_ALL, false);
+        stateFlags.set(StateFlags.HIDE_SHADOWS, toggle);
     }
 
     public void setHideAll(boolean toggle) {
-        this.setFlag(StateFlags.HIDE_ALL, toggle);
-        this.setFlag(StateFlags.HIDE_NODES, toggle);
-        this.setFlag(StateFlags.HIDE_SHADOWS, toggle);
-        this.setFlag(StateFlags.HIDE_SKYBOX, toggle);
+        stateFlags.set(StateFlags.HIDE_ALL, toggle);
     }
 
     public void setFrustumCheckBox(boolean toggle) {
-        this.setFlag(StateFlags.FRUSTUM_CHECK_BOX, toggle);
+        stateFlags.set(StateFlags.FRUSTUM_CHECK_BOX, toggle);
         if (toggle)
-            this.setFlag(StateFlags.FRUSTUM_CHECK_SPHERE, false);
+            stateFlags.set(StateFlags.FRUSTUM_CHECK_SPHERE, false);
     }
 
     public void setFrustumCheckSphere(boolean toggle) {
-        this.setFlag(StateFlags.FRUSTUM_CHECK_SPHERE, toggle);
+        stateFlags.set(StateFlags.FRUSTUM_CHECK_SPHERE, toggle);
         if (toggle)
-            this.setFlag(StateFlags.FRUSTUM_CHECK_BOX, false);
+            stateFlags.set(StateFlags.FRUSTUM_CHECK_BOX, false);
     }
 
     public void setOcclusionCheck(boolean toggle) {
-        this.setFlag(StateFlags.OCCLUSION_CHECK, toggle);
+        stateFlags.set(StateFlags.OCCLUSION_CHECK, toggle);
     }
 
     public void setShowGroundGrid(boolean toggle) {
-        this.setFlag(StateFlags.SHOW_GROUND_GRID, toggle);
+        stateFlags.set(StateFlags.SHOW_GROUND_GRID, toggle);
     }
 
     public void setSkyboxFollowsCamera(boolean toggle) {
-        this.setFlag(StateFlags.SKYBOX_FOLLOWS_CAMERA, toggle);
+        stateFlags.set(StateFlags.SKYBOX_FOLLOWS_CAMERA, toggle);
     }
 
     public void setShowBoundingSpheres(boolean toggle) {
-        this.setFlag(StateFlags.SHOW_BOUNDING_SPHERES, toggle);
+        stateFlags.set(StateFlags.SHOW_BOUNDING_SPHERES, toggle);
     }
 
     public void setShowBoundingBoxes(boolean toggle) {
-        this.setFlag(StateFlags.SHOW_BOUNDING_BOXES, toggle);
+        stateFlags.set(StateFlags.SHOW_BOUNDING_BOXES, toggle);
     }
     //-------------------------------------------------------------------------
 
@@ -299,10 +312,6 @@ public class SimpleSceneManager implements Disposable {
 
     public String getRootName() {
         return rootName;
-    }
-
-    public EnumSet<StateFlags> getStateFlags() {
-        return stateFlags;
     }
 
     public Array<GameObject> getGameObjects() {
@@ -498,7 +507,7 @@ public class SimpleSceneManager implements Disposable {
             linearTraverse();
         this.modelBatch.end();
         //Gdx.gl.glCullFace(GL20.GL_BACK);
-        if(!isShowBoundingBoxes() && !isShowBoundingSpheres())
+        if (!isShowBoundingBoxes() && !isShowBoundingSpheres())
             return;
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
@@ -508,7 +517,7 @@ public class SimpleSceneManager implements Disposable {
         for (int i = 0; i < visibleObjects.size; i++) {
             GameObject gameObject = visibleObjects.get(i);
             center = gameObject.center;
-            if(isShowBoundingBoxes()) {
+            if (isShowBoundingBoxes()) {
                 shapeRenderer.setColor(Color.FIREBRICK);
                 shapeRenderer.box(
                         center.x - gameObject.extent.x,
@@ -522,7 +531,7 @@ public class SimpleSceneManager implements Disposable {
                         gameObject.dimensions.z
                 );
             }
-            if(isShowBoundingSpheres()) {
+            if (isShowBoundingSpheres()) {
                 shapeRenderer.setColor(Color.SCARLET);
                 shapeRenderer.translate(center.x, center.y, center.z);
                 int segments = Math.max(6, (int) (10 * (float) Math.cbrt(gameObject.radius)));

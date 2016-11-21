@@ -18,6 +18,9 @@ import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.utils.*;
 import com.flexigame.fg.gfx.*;
 
+/**
+ *
+ */
 public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputProcessor {
 
     //-------------------------------------------------------------------------
