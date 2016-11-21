@@ -47,7 +47,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             rotateLeftKey = Input.Keys.Q;
             rotateRightKey = Input.Keys.E;
 
-
             translateTarget = true;
             forwardTarget = true;
             scrollTarget = true;
@@ -60,6 +59,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
             translateUnits = 96.0f;
             rotateAngle = 180.0f;
+            pinchZoomFactor = 48.0f;
         } // MyCameraInputController
 
         //---------------------------------------------------------------------
@@ -514,10 +514,15 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             TextureRegion region = new TextureRegion(pickSelectionFBO.getTexture(), 0.0f, 0.0f, 1.0f, 1.0f);
             int nSelected = pickSelection.count();
             for (int sidx = 0; sidx < nSelected; sidx++) {
-
+                PickSelection.PickingInfo pickingInfo = pickSelection.getSelectedObjectPickingInfo(sidx);
+                if (!pickingInfo.pickBoxOverlaps && !pickingInfo.pickBoxContains)
+                    continue; // ignore
+                if (!pickBox.overlaps(pickingInfo.onScreen))
+                    continue; // ignore again (pick selection is after this code)
+                GameObject gameObject = (GameObject) pickingInfo.spatialObject;
                 PickSelection.rectangleIntersection(tmpRectangle,
                         pickBox,
-                        pickSelection.getSelectedObjectPickingInfo(sidx).onScreen);
+                        pickingInfo.onScreen);
 
                 region.setRegion(
                         (int) pickSelectionFBO.computePositionX(tmpRectangle.x),
@@ -532,7 +537,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                         -tmpRectangle.height);
             }
             spriteBatch.end();
-        }
+        } // draw intersection pick boxes
 
         // Draw current pick selection box (and on-screen boxes for all selected objects)
         if (pickSelection.isUsePickingBox() && pickSelection.isPickerActive()) {
@@ -547,7 +552,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 SpatialObject spatialObject = selectedObjects.get(sid);
                 int gameObjectIndex = spatialObject.getSpatialObjectID();
                 if (pickingInfoMap.containsKey(gameObjectIndex)) {
-                    GameObject gameObject = sceneManager.get(gameObjectIndex);
+                    //GameObject gameObject = sceneManager.get(gameObjectIndex);
                     PickSelection.PickingInfo pickingInfo = pickingInfoMap.get(gameObjectIndex);
                     if (!pickingInfo.selected)
                         continue;
@@ -558,7 +563,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             } // for each selected object
             spriteBatch.disableBlending();
             spriteBatch.end();
-        }
+        } // draw pick box
 
         // Update pick selection buffer + traverse spatial objects
         if (pickSelection.isPickerActive()) {
@@ -608,13 +613,13 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         }
         if (keycode == Input.Keys.V) {
             Array<GameObject> visibleObjects = sceneManager.getVisibleObjects();
-            System.out.println("There are currently '"+visibleObjects.size+"' visible objects");
+            System.out.println("There are currently '" + visibleObjects.size + "' visible objects");
             for (int i = 0; i < visibleObjects.size; i++) {
                 System.out.println("Visible object [" + i + "]: '" + visibleObjects.get(i).getName() + "'");
             } // for each visible object
         }
         boolean noModKeys = true;
-        if(isKeyPressed(Input.Keys.ALT_LEFT) ||
+        if (isKeyPressed(Input.Keys.ALT_LEFT) ||
                 isKeyPressed(Input.Keys.SHIFT_LEFT) ||
                 isKeyPressed(Input.Keys.CONTROL_LEFT))
             noModKeys = false;

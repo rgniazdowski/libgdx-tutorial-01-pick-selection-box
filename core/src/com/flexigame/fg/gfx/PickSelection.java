@@ -158,8 +158,14 @@ public class PickSelection {
         public float timeStamp = 0;
         /* whether or not is currently selected */
         public boolean selected = false;
+        /* whether or not the picking box contains the on-screen box of this object */
+        public boolean pickBoxContains = false;
+        /* whether or not the picking box overlaps with the on-screen box */
+        public boolean pickBoxOverlaps = false;
 
         public void reset() {
+            pickBoxContains = false;
+            pickBoxOverlaps = false;
             selected = false;
             timeStamp = 0.0f;
             center.x = 0;
@@ -169,7 +175,7 @@ public class PickSelection {
             result = Result.NOT_PICKED;
             intersection.set(0.0f, 0.0f, 0.0f);
             spatialObject = null;
-        }
+        } // void reset()
     } // static final class PickingInfo
 
     //-------------------------------------------------------------------------
@@ -542,8 +548,9 @@ public class PickSelection {
             pickingInfo.onScreen.width = internalAABB.getWidth();
             pickingInfo.onScreen.height = internalAABB.getHeight();
 
-            boolean boxStatus = pickBox.overlaps(pickingInfo.onScreen)
-                    || pickBox.contains(pickingInfo.onScreen);
+            pickingInfo.pickBoxOverlaps = pickBox.overlaps(pickingInfo.onScreen);
+            pickingInfo.pickBoxContains = pickBox.contains(pickingInfo.onScreen);
+            boolean boxStatus = pickingInfo.pickBoxOverlaps || pickingInfo.pickBoxContains;
             if (boxStatus && !isCheckFBOPixels()) {
                 pickingInfo.result = goodPickResult; // force proper selection result
             } else if (boxStatus && fboPixelChecker != null) {
