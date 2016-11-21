@@ -264,7 +264,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         assetManager.load(clockBombModelPath, Model.class);
         assetManager.load(ammoBoxModelPath, Model.class);
         assetManager.load(weaponBoxModelPath, Model.class);
-        assetManager.load("ship.g3db", Model.class);
 
         loadTextures(params);
         selectionBoxNinePatch = new NinePatch(assetManager.get("selectionBox.png", Texture.class), 2, 2, 2, 2);
@@ -340,7 +339,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         ammoBoxModel = assetManager.get(ammoBoxModelPath, Model.class);
         weaponBoxModel = assetManager.get(weaponBoxModelPath, Model.class);
 
-        //crystalModel = assetManager.get("ship.g3db", Model.class);
         sceneManager.add(boxModel, "BOX1").setPosition(-25.0f, -5.0f, 5.0f); // 0
         sceneManager.get("BOX1").setScale(1.25f, 1.25f, 1.25f);
 
