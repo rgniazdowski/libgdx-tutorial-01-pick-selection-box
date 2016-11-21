@@ -6,6 +6,7 @@ import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
+import com.badlogic.gdx.utils.Pool;
 import com.badlogic.gdx.utils.TimeUtils;
 import com.flexigame.fg.utils.AbstractFlags;
 import com.flexigame.fg.utils.Vector2i;
@@ -141,7 +142,7 @@ public class PickSelection {
 
     //-------------------------------------------------------------------------
 
-    static public final class PickingInfo {
+    static public final class PickingInfo implements Pool.Poolable {
         /* Spatial object being check */
         public SpatialObject spatialObject = null;
         /* Current pick selection result for given object */
@@ -163,6 +164,7 @@ public class PickSelection {
         /* whether or not the picking box overlaps with the on-screen box */
         public boolean pickBoxOverlaps = false;
 
+        @Override
         public void reset() {
             pickBoxContains = false;
             pickBoxOverlaps = false;
@@ -178,16 +180,23 @@ public class PickSelection {
         } // void reset()
     } // static final class PickingInfo
 
+    private final Pool<PickingInfo> pickingInfoPool = new Pool<PickingInfo>() {
+        @Override
+        protected PickingInfo newObject() {
+            return new PickingInfo();
+        }
+    };
+
     //-------------------------------------------------------------------------
 
     /* External array with spatial objects (that need checking) - can be null */
     protected Array<SpatialObject> spatialObjects = null;
     /* Array with currently selected objects */
-    protected Array<SpatialObject> selectedObjects = new Array<SpatialObject>();
+    protected final Array<SpatialObject> selectedObjects = new Array<SpatialObject>();
     /* Special map for mapping object scene index to PickingInfo structure */
-    protected ObjectMap<Integer, PickingInfo> pickingInfoMap = new ObjectMap<Integer, PickingInfo>(64);
+    protected final ObjectMap<Integer, PickingInfo> pickingInfoMap = new ObjectMap<Integer, PickingInfo>(64);
     /* Current state flags (on/off options) */
-    protected StateFlags stateFlags = new StateFlags(StateFlags.SELECTION_ON_CLICK);
+    protected final StateFlags stateFlags = new StateFlags(StateFlags.SELECTION_ON_CLICK);
     /* External camera (required) */
     protected Camera camera = null;
     /* Current picking ray */
@@ -388,18 +397,15 @@ public class PickSelection {
     }
 
     public void clear() {
-        this.selectedObjects.clear();
-        if (this.pickingInfoMap.size > this.selectedObjects.size) {
-            this.pickingInfoMap.clear();
-            ////System.out.println("Clearing picking info map");
-        } else {
-            ObjectMap.Values<PickingInfo> values = this.pickingInfoMap.values();
-            while (values.hasNext()) {
-                PickingInfo pickingInfo = values.next();
-                pickingInfo.reset();
-            } // for each entry
-        }
-    }
+        ObjectMap.Values<PickingInfo> values = this.pickingInfoMap.values();
+        pickingInfoPool.freeAll(values.toArray());
+        while (values.hasNext()) {
+            PickingInfo pickingInfo = values.next();
+            pickingInfo.reset();
+        } // for each entry
+        //pickingInfoMap.clear();
+        selectedObjects.clear();
+    } // void clear()
 
     //-------------------------------------------------------------------------
 
@@ -547,7 +553,6 @@ public class PickSelection {
             pickingInfo.onScreen.y = internalAABB.min.y;
             pickingInfo.onScreen.width = internalAABB.getWidth();
             pickingInfo.onScreen.height = internalAABB.getHeight();
-
             pickingInfo.pickBoxOverlaps = pickBox.overlaps(pickingInfo.onScreen);
             pickingInfo.pickBoxContains = pickBox.contains(pickingInfo.onScreen);
             boolean boxStatus = pickingInfo.pickBoxOverlaps || pickingInfo.pickBoxContains;
@@ -586,7 +591,8 @@ public class PickSelection {
         final Integer key = Integer.valueOf(spatialObject.getSpatialObjectID());
         PickingInfo pickingInfo = pickingInfoMap.get(key);
         if (pickingInfo == null) {
-            pickingInfo = new PickingInfo();
+            //pickingInfo = new PickingInfo();
+            pickingInfo = pickingInfoPool.obtain();
             pickingInfo.spatialObject = spatialObject;
             pickingInfoMap.put(key, pickingInfo);
         } else if (pickingInfo.spatialObject == null) {
