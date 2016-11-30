@@ -551,6 +551,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             Array<SpatialObject> selectedObjects = pickSelection.getSelectedObjects();
             for (int sid = 0; sid < selectedObjects.size; sid++) {
                 SpatialObject spatialObject = selectedObjects.get(sid);
+                if (!spatialObject.isVisible())
+                    continue;
                 int gameObjectIndex = spatialObject.getSpatialObjectID();
                 if (pickingInfoMap.containsKey(gameObjectIndex)) {
                     //GameObject gameObject = sceneManager.get(gameObjectIndex);

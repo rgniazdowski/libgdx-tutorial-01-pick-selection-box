@@ -166,17 +166,16 @@ public class PickSelection {
 
         @Override
         public void reset() {
-            pickBoxContains = false;
-            pickBoxOverlaps = false;
-            selected = false;
-            timeStamp = 0.0f;
-            center.x = 0;
-            center.y = 0;
-            radius = 0;
-            onScreen.set(0, 0, 0, 0);
+            spatialObject = null;
             result = Result.NOT_PICKED;
             intersection.set(0.0f, 0.0f, 0.0f);
-            spatialObject = null;
+            onScreen.set(0, 0, 0, 0);
+            radius = 0;
+            center.set(0, 0);
+            timeStamp = 0.0f;
+            selected = false;
+            pickBoxContains = false;
+            pickBoxOverlaps = false;
         } // void reset()
     } // static final class PickingInfo
 
@@ -398,7 +397,7 @@ public class PickSelection {
 
     public void clear() {
         ObjectMap.Values<PickingInfo> values = this.pickingInfoMap.values();
-        pickingInfoPool.freeAll(values.toArray());
+        //pickingInfoPool.freeAll(values.toArray());
         while (values.hasNext()) {
             PickingInfo pickingInfo = values.next();
             pickingInfo.reset();
@@ -514,7 +513,7 @@ public class PickSelection {
         pickingInfo.result = Result.NOT_PICKED;
 
         boolean status = Intersector.intersectRaySphere(this.ray,
-                spatialObject.getPosition(),
+                spatialObject.getCenter(),
                 spatialObject.getRadius(),
                 pickingInfo.intersection);
 
@@ -588,10 +587,9 @@ public class PickSelection {
         if (spatialObject == null)
             throw new IllegalArgumentException("spatialObject cannot be null");
 
-        final Integer key = Integer.valueOf(spatialObject.getSpatialObjectID());
+        final Integer key = spatialObject.getSpatialObjectID();
         PickingInfo pickingInfo = pickingInfoMap.get(key);
         if (pickingInfo == null) {
-            //pickingInfo = new PickingInfo();
             pickingInfo = pickingInfoPool.obtain();
             pickingInfo.spatialObject = spatialObject;
             pickingInfoMap.put(key, pickingInfo);
@@ -640,6 +638,7 @@ public class PickSelection {
                 selectedObjects.clear();
                 selectedObjects.add(spatialObject);
                 pickingInfo.timeStamp = exact;
+                pickingInfo.selected = true;
                 //////DEBUG////System.out.println(spatialObject.getSpatialObjectID() + " selected[" + pickingInfo.selected + "]: ts [" + ts + "]<[" + pickTimeStampBegin + "] pickTimeStamp | shouldRemove: " + shouldRemove);
             }
 
@@ -653,6 +652,7 @@ public class PickSelection {
         } else if (shouldUnselect()) {
             shouldRemove = true;
             pickingInfo.selected = false;
+            //System.out.println(spatialObject.getSpatialObjectID() + " should unselect true, selected[" + pickingInfo.selected + "]: ts [" + ts + "]<[" + pickTimeStampBegin + "] pickTimeStamp | shouldRemove: " + shouldRemove);
         }
         if (shouldRemove && selectedObjects.size > 0 && index >= 0) {
             //////DEBUG////System.out.println(spatialObject.getSpatialObjectID() + " removing from internal obj list [idx:" + index + "]");
@@ -686,6 +686,7 @@ public class PickSelection {
     public void updateRay() {
         if (camera == null)
             return; // can't do
+        camera.update();
         // The screen coordinates origin is assumed to be in the top left corner
         ray = camera.getPickRay(this.pickPos.x, this.camera.viewportHeight - this.pickPos.y);
     }
@@ -695,6 +696,10 @@ public class PickSelection {
             pickPos.x = 0;
         if (pickPos.y < 0)
             pickPos.y = 0;
+        if(!isUsePickingBox()) {
+            pickBox.set(pickPos.x, pickPos.y, 1.0f, 1.0f);
+            return;
+        }
         float sizeX, sizeY, posX, posY;
         posX = pickPosBegin.x;
         posY = pickPosBegin.y;
@@ -792,23 +797,21 @@ public class PickSelection {
             end();
             return false;
         }
-
         final int numObjects = spatialObjectsArray.size;
         SpatialObject spatialObject;
-        boolean wasSelectedBefore = false;
+        boolean wasSelectedBefore;
         for (int i = 0; i < numObjects; i++) {
             wasSelectedBefore = false;
             spatialObject = spatialObjectsArray.get(i);
             if (!spatialObject.isVisible())
                 continue;
-            int objectID = spatialObject.getSpatialObjectID();
-            PickingInfo pickingInfo = null;
+            final int objectID = spatialObject.getSpatialObjectID();
+            PickingInfo pickingInfo;
             if (pickingInfoMap.containsKey(objectID)) {
                 pickingInfo = pickingInfoMap.get(objectID);
                 wasSelectedBefore = pickingInfo.selected;
             }
             pickingInfo = performFullCheck(spatialObject);
-
             if (pickingInfo.selected && shouldCallListeners && !wasSelectedBefore) {
                 // SELECTED! NEW!
                 callOnSelectionListeners(spatialObject, pickingInfo, true);
