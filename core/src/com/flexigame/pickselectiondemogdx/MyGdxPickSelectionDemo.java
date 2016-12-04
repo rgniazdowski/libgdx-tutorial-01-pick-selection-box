@@ -12,6 +12,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.*;
 import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
@@ -303,9 +304,11 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         pickSelection = new PickSelection();
         pickSelection.setCamera(sceneManager.getCamera());
         pickSelection.setSpatialObjects(sceneManager.getSpatialObjects());
-        pickSelection.usePickingBox();
-        pickSelection.setGroupSelectionMode();
-        //pickSelection.setToggleSelectionMode();
+        pickSelection.setGroupSelectionMode(true);
+        pickSelection.usePickingBox(true);
+        pickSelection.setToggleSelectionMode(false);
+        pickSelection.setCheckAABBTriangles(false);
+        pickSelection.setCheckFBOPixels(true); // #FRAMEBUFFER_PIXELS
 
         pickSelection.addOnSelectionListener(new PickSelection.OnSelectionListener() {
             @Override
@@ -401,8 +404,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 pickSelectionFBO);
         Gdx.app.debug(APP_NAME_ID, "Finished initializing pick selection renderer.");
 
-        pickSelection.setCheckFBOPixels(true);
-
         diffuseColors.ensureCapacity(sceneManager.count() + 1);
         for (int i = 0; i < sceneManager.count(); i++) {
             GameObject gameObject = sceneManager.get(i);
@@ -477,6 +478,18 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             {0.25f, 1.0f, 0.50f, -25.0f} // BOMB1
     };
 
+    Vector3[] aabbPoints = {
+            new Vector3(),
+            new Vector3(),
+            new Vector3(),
+            new Vector3(),
+            new Vector3(),
+            new Vector3(),
+            new Vector3(),
+            new Vector3()
+    };
+
+    boolean drawAABBTriangles = false;
     @Override
     public void render() {
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -485,11 +498,13 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         cameraInputController.update();
         final float delta = Gdx.app.getGraphics().getDeltaTime();
 
-        int nObjects = sceneManager.count();
-        for (int i = 0; i < rotationSpeeds.length && i < nObjects; i++) {
-            float[] rot = rotationSpeeds[i];
-            sceneManager.get(i).rotate(rot[0], rot[1], rot[2], rot[3] * delta);
-        } // for each object and rotation speed data
+        {
+            int nObjects = sceneManager.count();
+            for (int i = 0; i < rotationSpeeds.length && i < nObjects; i++) {
+                float[] rot = rotationSpeeds[i];
+                sceneManager.get(i).rotate(rot[0], rot[1], rot[2], rot[3] * delta);
+            } // for each object and rotation speed data
+        } // rotating objects
 
         sceneManager.render();
         boolean showFrameBufferTexture = false;
@@ -506,6 +521,49 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             spriteBatch.draw(pickSelectionFBO.getTexture(), 0, getHeight(), getWidth(), -getHeight());
             spriteBatch.end();
         }
+
+        if (drawAABBTriangles && !showFrameBufferTexture) {
+            int nObjects = sceneManager.count();
+            ShapeRenderer shapeRenderer = sceneManager.getShapeRenderer();
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.identity();
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+            shapeRenderer.setColor(Color.YELLOW);
+            Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+            Gdx.gl.glDepthMask(true);
+            short[][] aabbTrisIdx = pickSelection.aabbTrisIdx;
+            Vector3 a, b, c;
+            for (int i = 0; i < nObjects; i++) {
+                GameObject gameObject = sceneManager.get(i);
+                if (!gameObject.isVisible())
+                    continue;
+                BoundingBox boundingBox = gameObject.getOriginalBoundingBox();
+                boundingBox.getCorner000(aabbPoints[0]);
+                boundingBox.getCorner001(aabbPoints[1]);
+                boundingBox.getCorner010(aabbPoints[2]);
+                boundingBox.getCorner011(aabbPoints[3]);
+                boundingBox.getCorner100(aabbPoints[4]);
+                boundingBox.getCorner101(aabbPoints[5]);
+                boundingBox.getCorner110(aabbPoints[6]);
+                boundingBox.getCorner111(aabbPoints[7]);
+                for (int j = 0; j < 8; j++)
+                    aabbPoints[j].mul(gameObject.getTransform());
+
+                for (int j = 0; j < 12; j++) {
+                    a = aabbPoints[aabbTrisIdx[j][0] - 1]; // point A
+                    b = aabbPoints[aabbTrisIdx[j][1] - 1]; // point B
+                    c = aabbPoints[aabbTrisIdx[j][2] - 1]; // point C
+
+                    // line A - B
+                    shapeRenderer.line(a, b);
+                    // line B - C
+                    shapeRenderer.line(b, c);
+                    // line C - A
+                    shapeRenderer.line(c, a);
+                } // for each triangle in the aabb
+            } // for each object in scene manager
+            shapeRenderer.end();
+        } // draw aabb triangles (transformed)
 
         // Draw intersection of the picking box with the on-screen box of the selected object
         if (isKeyPressed(Input.Keys.I) && pickSelection.hasPicked() && pickSelection.isPickerActive()) {
