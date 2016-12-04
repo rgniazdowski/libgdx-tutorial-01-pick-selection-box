@@ -490,6 +490,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     };
 
     boolean drawAABBTriangles = false;
+    boolean drawAABBCornerPoints = false;
+
     @Override
     public void render() {
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
@@ -625,6 +627,40 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             spriteBatch.disableBlending();
             spriteBatch.end();
         } // draw pick box
+
+        if (drawAABBCornerPoints && !showFrameBufferTexture) {
+            spriteBatch.begin();
+            //spriteBatch.enableBlending();
+            Array<GameObject> gameObjects = sceneManager.getGameObjects();
+            int numObjects = gameObjects.size;
+            boolean skipInvisible = true;
+            for (int objectIdx = 0; objectIdx < numObjects; objectIdx++) {
+                GameObject gameObject = gameObjects.get(objectIdx);
+                if (skipInvisible && !gameObject.isVisible())
+                    continue;
+                BoundingBox boundingBox = gameObject.getOriginalBoundingBox();
+                boundingBox.getCorner000(aabbPoints[0]);
+                boundingBox.getCorner001(aabbPoints[1]);
+                boundingBox.getCorner010(aabbPoints[2]);
+                boundingBox.getCorner011(aabbPoints[3]);
+                boundingBox.getCorner100(aabbPoints[4]);
+                boundingBox.getCorner101(aabbPoints[5]);
+                boundingBox.getCorner110(aabbPoints[6]);
+                boundingBox.getCorner111(aabbPoints[7]);
+                //internalAABB.inf();
+                for (int i = 0; i < 8; i++) {
+                    aabbPoints[i].mul(gameObject.getTransform());
+                    camera.project(aabbPoints[i]);
+                    /*internalAABB.ext(aabbPoints[i].x,
+                            aabbPoints[i].y,
+                            aabbPoints[i].z);*/
+                    spriteBatch.draw(whiteTexture,
+                            aabbPoints[i].x - 1.0f, aabbPoints[i].y - 1.0f,
+                            2.0f, 2.0f);
+                } // for each AABB point!
+            } // for each object in the screen
+            spriteBatch.end();
+        } // draw AABB corner points on-screen!
 
         // Update pick selection buffer + traverse spatial objects
         if (pickSelection.isPickerActive()) {
