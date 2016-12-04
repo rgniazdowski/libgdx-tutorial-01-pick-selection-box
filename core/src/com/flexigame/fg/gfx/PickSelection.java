@@ -504,6 +504,45 @@ public class PickSelection {
 
     //-------------------------------------------------------------------------
 
+    public final short[][] aabbTrisIdx = {
+            {
+                    1, 5, 7
+            }, // 0: front 157
+            {
+                    1, 7, 3
+            }, // 1: front 173
+            {
+                    6, 2, 4
+            }, // 2: back 624
+            {
+                    6, 4, 8
+            }, // 3: back 648
+            {
+                    2, 1, 3
+            }, // 4: left 213
+            {
+                    2, 3, 4
+            }, // 5: left 234
+            {
+                    5, 6, 8
+            }, // 6: right 568
+            {
+                    5, 8, 7
+            }, // 7: right 587
+            {
+                    7, 8, 4
+            }, // 8: top 784
+            {
+                    7, 4, 3
+            }, // 9: top 743
+            {
+                    1, 2, 6
+            }, // 10: bottom 126
+            {
+                    1, 6, 5
+            } //  11: bottom 165
+    };
+
     protected Result internal_isPicked(PickingInfo pickingInfo) {
         if (pickingInfo == null)
             throw new IllegalArgumentException("pickingInfo cannot be null");
@@ -511,23 +550,44 @@ public class PickSelection {
         if (spatialObject == null)
             throw new IllegalArgumentException("spatialObject cannot be null");
         pickingInfo.result = Result.NOT_PICKED;
-
         boolean status = Intersector.intersectRaySphere(this.ray,
                 spatialObject.getCenter(),
                 spatialObject.getRadius(),
-                pickingInfo.intersection);
+                pickingInfo.intersection), triangleStatus;
 
         if (status && !isCheckAABBTriangles())
             pickingInfo.result = Result.PICKED_SPHERE;
 
         if (status && isCheckAABBTriangles()) {
-            // FIXME - need to implement checking picking with AABB triangles!
-            pickingInfo.result = Result.PICKED_AABB;
+            BoundingBox boundingBox = spatialObject.getOriginalBoundingBox();
+            boundingBox.getCorner000(aabbPoints[0]);
+            boundingBox.getCorner001(aabbPoints[1]);
+            boundingBox.getCorner010(aabbPoints[2]);
+            boundingBox.getCorner011(aabbPoints[3]);
+            boundingBox.getCorner100(aabbPoints[4]);
+            boundingBox.getCorner101(aabbPoints[5]);
+            boundingBox.getCorner110(aabbPoints[6]);
+            boundingBox.getCorner111(aabbPoints[7]);
+            for (int i = 0; i < 8; i++) {
+                aabbPoints[i].mul(spatialObject.getTransform());
+            } // for each aabb point
+            // 12 triangles of the aabb
+            for (int i = 0; i < 12; i++) {
+                triangleStatus = Intersector.intersectRayTriangle(this.ray,
+                        aabbPoints[aabbTrisIdx[i][0] - 1],
+                        aabbPoints[aabbTrisIdx[i][1] - 1],
+                        aabbPoints[aabbTrisIdx[i][2] - 1],
+                        tmpVec);
+                if (triangleStatus) {
+                    pickingInfo.result = Result.PICKED_AABB;
+                    pickingInfo.intersection.set(tmpVec);
+                    break;
+                }
+            } // for each triangle in the aabb
         }
 
         if (isOnClick() && isUsePickingBox() && this.camera != null) {
-            BoundingBox boundingBox =
-                    pickingInfo.spatialObject.getOriginalBoundingBox();
+            BoundingBox boundingBox = spatialObject.getOriginalBoundingBox();
             boundingBox.getCorner000(aabbPoints[0]);
             boundingBox.getCorner001(aabbPoints[1]);
             boundingBox.getCorner010(aabbPoints[2]);
@@ -538,12 +598,12 @@ public class PickSelection {
             boundingBox.getCorner111(aabbPoints[7]);
             internalAABB.inf();
             for (int i = 0; i < 8; i++) {
-                aabbPoints[i].mul(pickingInfo.spatialObject.getTransform());
+                aabbPoints[i].mul(spatialObject.getTransform());
                 camera.project(aabbPoints[i]);
                 internalAABB.ext(aabbPoints[i].x,
                         aabbPoints[i].y,
                         aabbPoints[i].z);
-            }
+            } // for each aabb point
             internalAABB.getCenter(tmpVec);
             pickingInfo.center.x = (int) tmpVec.x;
             pickingInfo.center.y = (int) tmpVec.y;
@@ -696,7 +756,7 @@ public class PickSelection {
             pickPos.x = 0;
         if (pickPos.y < 0)
             pickPos.y = 0;
-        if(!isUsePickingBox()) {
+        if (!isUsePickingBox()) {
             pickBox.set(pickPos.x, pickPos.y, 1.0f, 1.0f);
             return;
         }
