@@ -17,6 +17,7 @@ public interface SpatialObject {
     boolean isVisible();
 
     Vector3 getExtent();
+    Vector3 getDimensions();
     Vector3 getCenter();
     float getRadius();
 

@@ -75,11 +75,7 @@ public class PickSelectionRenderer implements PickSelection.PixelChecker, Dispos
         this.pickSelection = pickSelection;
         this.frameBuffer = frameBuffer;
 
-        /* this will pointer will require refresh when screen resolution changes */
-        /*this.pickSelection.setFboPixelsData(frameBuffer.getBytePixels(),
-                frameBuffer.getWidth(), frameBuffer.getHeight());*/
         this.pickSelection.setPixelChecker(this);
-
     } // PickSelectionRenderer()
 
     //-------------------------------------------------------------------------
@@ -100,33 +96,32 @@ public class PickSelectionRenderer implements PickSelection.PixelChecker, Dispos
             throw new RuntimeException("Pick selection buffer is not valid");
         boolean status = false;
         final Rectangle pickBox = pickSelection.getPickBox();
-        int _area_x = Math.max(frameBuffer.computePositionX((int) area.x - (int) pickBox.x), 0);
-        int _area_y = Math.max(frameBuffer.computePositionY((int) area.y - (int) pickBox.y), 0);
-        int _area_width = frameBuffer.computePositionX((int) area.width);
-        int _area_height = frameBuffer.computePositionY((int) area.height);
-        int _line_width = frameBuffer.computePositionX((int) pickBox.width);
-        if (_area_width == 0)
-            _area_width = 1;
-        if (_line_width == 0)
-            _line_width = 1;
-        if (_area_height == 0)
-            _area_height = 1;
+        int area_x = Math.max(frameBuffer.computePositionX((int) area.x - (int) pickBox.x), 0);
+        int area_y = Math.max(frameBuffer.computePositionY((int) area.y - (int) pickBox.y), 0);
+        int area_width = frameBuffer.computePositionX((int) area.width);
+        int area_height = frameBuffer.computePositionY((int) area.height);
+        int line_width = frameBuffer.computePositionX((int) pickBox.width);
+        if (area_width == 0)
+            area_width = 1;
+        if (line_width == 0)
+            line_width = 1;
+        if (area_height == 0)
+            area_height = 1;
 
-        int _red, _green, _blue, _alpha;
+        int red, green, blue, alpha;
         int gameObjectIndex = 0;
         int finalOffset = 0;
         int pixelSize = frameBuffer.getPixelSize();
-        int offset = _area_x * pixelSize + _area_y * pixelSize * _line_width;
-        for (int y = 0; y < _area_height && !status; y++) {
-            for (int x = 0; x < _area_width && !status; x++) {
-                finalOffset = offset + x * pixelSize + y * pixelSize * _line_width;
+        int offset = area_x * pixelSize + area_y * pixelSize * line_width;
+        for (int y = 0; y < area_height && !status; y++) {
+            for (int x = 0; x < area_width && !status; x++) {
+                finalOffset = offset + x * pixelSize + y * pixelSize * line_width;
 
-                _red = frameBuffer.bytePixels[finalOffset + 0];
-                _green = frameBuffer.bytePixels[finalOffset + 1];
-                _blue = frameBuffer.bytePixels[finalOffset + 2];
-                _alpha = frameBuffer.bytePixels[finalOffset + 3];
-                gameObjectIndex = Color.toIntBits(_alpha, _blue, _green, _red);
-                //pickingColor.set(gameObjectIndex);
+                red = frameBuffer.bytePixels[finalOffset + 0];
+                green = frameBuffer.bytePixels[finalOffset + 1];
+                blue = frameBuffer.bytePixels[finalOffset + 2];
+                alpha = frameBuffer.bytePixels[finalOffset + 3];
+                gameObjectIndex = Color.toIntBits(alpha, blue, green, red);
                 gameObjectIndex--; // down one
                 if (gameObjectIndex == colorValue) {
                     status = true;
@@ -135,7 +130,7 @@ public class PickSelectionRenderer implements PickSelection.PixelChecker, Dispos
             } // for each row in data
         } // for each line in data
         return status;
-    } // boolean isInPixels
+    } // boolean isColorInPixels(...)
 
     //-------------------------------------------------------------------------
 
@@ -176,6 +171,7 @@ public class PickSelectionRenderer implements PickSelection.PixelChecker, Dispos
         Array<GameObject> gameObjects = sceneManager.getGameObjects();
         pickShader.begin(sceneManager.getCamera(), sceneManager.getModelBatch().getRenderContext());
 
+        // the rendering loop is based on the code from ModelBatch class
         for (int objectIndex = 0; objectIndex < gameObjects.size; objectIndex++) {
             final GameObject gameObject = gameObjects.get(objectIndex);
             if (!gameObject.isVisible())

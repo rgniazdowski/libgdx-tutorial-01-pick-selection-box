@@ -15,8 +15,6 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.Disposable;
 import com.flexigame.fg.utils.AbstractFlags;
 
-import java.util.EnumSet;
-
 /**
  *
  */
@@ -515,6 +513,7 @@ public class SimpleSceneManager implements Disposable {
             return;
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.identity();
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glDepthMask(true);
         Vector3 center;
@@ -527,9 +526,6 @@ public class SimpleSceneManager implements Disposable {
                         center.x - gameObject.extent.x,
                         center.y - gameObject.extent.y,
                         center.z + gameObject.extent.z,
-                        //gameObject.transform.val[12] - gameObject.extent.x, // 12 / M03
-                        //gameObject.transform.val[13] - gameObject.extent.y, // 13 / M13
-                        //gameObject.transform.val[14] + gameObject.extent.z, // 14 / M23
                         gameObject.dimensions.x,
                         gameObject.dimensions.y,
                         gameObject.dimensions.z
@@ -564,7 +560,7 @@ public class SimpleSceneManager implements Disposable {
 
     public boolean checkVisibilityBox(GameObject gameObject) {
         return this.camera.frustum.boundsInFrustum(gameObject.center, gameObject.dimensions);
-    }
+    } // boolean checkVisibilityBox(...)
 
     protected void linearTraverse() {
         final int numObjects = gameObjects.size;

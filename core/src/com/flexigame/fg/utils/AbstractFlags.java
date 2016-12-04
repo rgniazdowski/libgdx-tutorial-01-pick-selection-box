@@ -20,6 +20,12 @@ public abstract class AbstractFlags {
 
     //-------------------------------------------------------------------------
 
+    public abstract int count();
+
+    public abstract int[] getValues();
+
+    //-------------------------------------------------------------------------
+
     public int getValue() {
         return this.value;
     }
@@ -59,12 +65,6 @@ public abstract class AbstractFlags {
             return false;
         return true;
     }
-
-    //-------------------------------------------------------------------------
-
-    public abstract int count();
-
-    public abstract int[] getValues();
 
     //-------------------------------------------------------------------------
 

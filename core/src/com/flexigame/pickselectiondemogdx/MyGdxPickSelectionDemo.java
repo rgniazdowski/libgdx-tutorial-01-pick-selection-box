@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.utils.CameraInputController;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
@@ -111,10 +112,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             if (button == rotateButton) {
                 tmpV1.set(camera.direction).crs(camera.up).y = 0f;
                 camera.rotate(tmpV1.nor(), -deltaY * rotateAngle);
-                //camera.rotate(camera.up, -deltaX * rotateAngle);
                 camera.rotate(Vector3.Y, deltaX * rotateAngle);
-                //camera.rotateAround(target, tmpV1.nor(), deltaY * rotateAngle);
-                //camera.rotateAround(target, Vector3.Y, deltaX * -rotateAngle);
             } else if (button == translateButton) {
                 camera.translate(tmpV1.set(camera.direction).crs(camera.up).nor().scl(-deltaX * translateUnits));
                 camera.translate(tmpV2.set(camera.up).scl(-deltaY * translateUnits));
@@ -125,8 +123,9 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
             }
             if (autoUpdate) camera.update();
             return true;
-            //return super.process(deltaX, deltaY, button);
-        }
+        } // boolean process(...)
+
+        //---------------------------------------------------------------------
 
         @Override
         public boolean keyDown(int keycode) {
@@ -155,7 +154,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         }
 
         //---------------------------------------------------------------------
-
     } // static class MyCameraInputController
 
     //-------------------------------------------------------------------------
@@ -239,6 +237,9 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
     Array<Color> diffuseColors;
 
+    Rectangle tmpRectangle;
+    TextureRegion tmpRegion;
+
     //-------------------------------------------------------------------------
 
     @Override
@@ -246,6 +247,9 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         // adjust properly pick selection buffer
         assetManager = new AssetManager();
         Texture.setAssetManager(assetManager);
+
+        tmpRectangle = new Rectangle();
+        tmpRegion = new TextureRegion();
 
         diffuseColors = new Array<Color>();
         spriteBatch = new SpriteBatch();
@@ -307,7 +311,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         pickSelection.setGroupSelectionMode(true);
         pickSelection.usePickingBox(true);
         pickSelection.setToggleSelectionMode(false);
-        pickSelection.setCheckAABBTriangles(false);
+        pickSelection.setCheckOBBTriangles(false);
         pickSelection.setCheckFBOPixels(true); // #FRAMEBUFFER_PIXELS
 
         pickSelection.addOnSelectionListener(new PickSelection.OnSelectionListener() {
@@ -317,7 +321,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                                          boolean selected) {
                 String message = "";
                 if (pickingInfo.selected) {
-                    message = "[" + spatialObject.getSpatialObjectID() + "] SELECTED (" + selected + ")";
+                    message = "[" + spatialObject.getSpatialObjectID() + "] SELECTED (" + selected + ") / [" + pickingInfo.result.toString() + "]";
                 } else {
                     message = "[" + spatialObject.getSpatialObjectID() + "] UNSELECTED (" + selected + ")";
                 }
@@ -555,7 +559,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                     a = aabbPoints[aabbTrisIdx[j][0] - 1]; // point A
                     b = aabbPoints[aabbTrisIdx[j][1] - 1]; // point B
                     c = aabbPoints[aabbTrisIdx[j][2] - 1]; // point C
-
                     // line A - B
                     shapeRenderer.line(a, b);
                     // line B - C
@@ -570,9 +573,8 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         // Draw intersection of the picking box with the on-screen box of the selected object
         if (isKeyPressed(Input.Keys.I) && pickSelection.hasPicked() && pickSelection.isPickerActive()) {
             spriteBatch.begin();
-            Rectangle tmpRectangle = new Rectangle();
             Rectangle pickBox = pickSelection.getPickBox();
-            TextureRegion region = new TextureRegion(pickSelectionFBO.getTexture(), 0.0f, 0.0f, 1.0f, 1.0f);
+            tmpRegion.setTexture(pickSelectionFBO.getTexture());
             int nSelected = pickSelection.count();
             for (int sidx = 0; sidx < nSelected; sidx++) {
                 PickSelection.PickingInfo pickingInfo = pickSelection.getSelectedObjectPickingInfo(sidx);
@@ -580,18 +582,17 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                     continue; // ignore
                 if (!pickBox.overlaps(pickingInfo.onScreen))
                     continue; // ignore again (pick selection is after this code)
-                GameObject gameObject = (GameObject) pickingInfo.spatialObject;
-                PickSelection.rectangleIntersection(tmpRectangle,
-                        pickBox,
-                        pickingInfo.onScreen);
-
-                region.setRegion(
+                Intersector.intersectRectangles(pickBox,
+                        pickingInfo.onScreen,
+                        tmpRectangle);
+                tmpRegion.setRegion(
                         (int) pickSelectionFBO.computePositionX(tmpRectangle.x),
                         (int) pickSelectionFBO.computePositionY(tmpRectangle.y),
                         (int) pickSelectionFBO.computePositionX(tmpRectangle.width),
                         (int) pickSelectionFBO.computePositionY(tmpRectangle.height));
 
-                spriteBatch.draw(region,
+                // need to draw the texture rectangle that is flipped
+                spriteBatch.draw(tmpRegion,
                         tmpRectangle.x,
                         tmpRectangle.y + tmpRectangle.height,
                         tmpRectangle.width,
@@ -601,27 +602,31 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         } // draw intersection pick boxes
 
         // Draw current pick selection box (and on-screen boxes for all selected objects)
-        if (pickSelection.isUsePickingBox() && pickSelection.isPickerActive()) {
+        if ((pickSelection.isUsePickingBox() || pickSelection.isCheckOnScreenBoxes()) && pickSelection.isPickerActive()) {
             Rectangle pickBox = pickSelection.getPickBox();
             spriteBatch.begin();
             spriteBatch.enableBlending();
-            selectionBoxNinePatch.draw(spriteBatch, pickBox.getX(), pickBox.getY(), pickBox.getWidth(), pickBox.getHeight());
-
+            if (pickSelection.isUsePickingBox()) {
+                selectionBoxNinePatch.draw(spriteBatch,
+                        pickBox.getX(), pickBox.getY(),
+                        pickBox.getWidth(), pickBox.getHeight());
+            }
             ObjectMap<Integer, PickSelection.PickingInfo> pickingInfoMap = pickSelection.getPickingInfoMap();
             Array<SpatialObject> selectedObjects = pickSelection.getSelectedObjects();
             for (int sid = 0; sid < selectedObjects.size; sid++) {
                 SpatialObject spatialObject = selectedObjects.get(sid);
                 if (!spatialObject.isVisible())
-                    continue;
+                    continue; // ignore spatial objects that are not visible
                 int gameObjectIndex = spatialObject.getSpatialObjectID();
                 if (pickingInfoMap.containsKey(gameObjectIndex)) {
-                    //GameObject gameObject = sceneManager.get(gameObjectIndex);
                     PickSelection.PickingInfo pickingInfo = pickingInfoMap.get(gameObjectIndex);
                     if (!pickingInfo.selected)
                         continue;
                     selectionBoxNinePatch.draw(spriteBatch,
-                            pickingInfo.onScreen.getX(), pickingInfo.onScreen.getY(),
-                            pickingInfo.onScreen.getWidth(), pickingInfo.onScreen.getHeight());
+                            pickingInfo.onScreen.getX(),
+                            pickingInfo.onScreen.getY(),
+                            pickingInfo.onScreen.getWidth(),
+                            pickingInfo.onScreen.getHeight());
                 }
             } // for each selected object
             spriteBatch.disableBlending();
@@ -630,7 +635,6 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
 
         if (drawAABBCornerPoints && !showFrameBufferTexture) {
             spriteBatch.begin();
-            //spriteBatch.enableBlending();
             Array<GameObject> gameObjects = sceneManager.getGameObjects();
             int numObjects = gameObjects.size;
             boolean skipInvisible = true;
@@ -647,16 +651,12 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 boundingBox.getCorner101(aabbPoints[5]);
                 boundingBox.getCorner110(aabbPoints[6]);
                 boundingBox.getCorner111(aabbPoints[7]);
-                //internalAABB.inf();
                 for (int i = 0; i < 8; i++) {
                     aabbPoints[i].mul(gameObject.getTransform());
                     camera.project(aabbPoints[i]);
-                    /*internalAABB.ext(aabbPoints[i].x,
-                            aabbPoints[i].y,
-                            aabbPoints[i].z);*/
                     spriteBatch.draw(whiteTexture,
-                            aabbPoints[i].x - 1.0f, aabbPoints[i].y - 1.0f,
-                            2.0f, 2.0f);
+                            aabbPoints[i].x - 2.0f, aabbPoints[i].y - 2.0f,
+                            4.0f, 4.0f);
                 } // for each AABB point!
             } // for each object in the screen
             spriteBatch.end();
@@ -732,26 +732,48 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
         if (keycode == Input.Keys.M && noModKeys) {
             // pick selection mode
             // 0 - default (sphere only)
-            // 1 - aabb triangles
-            // 2 - FBO pixels
+            // 1 - aabb flat
+            // 2 - on screen boxes
+            // 3 - obb triangles
+            // 4 - FBO pixels
             pickModeCode++;
-            if (pickModeCode > 2)
+            if (pickModeCode > 4)
                 pickModeCode = 0;
             switch (pickModeCode) {
                 case 0:
-                    pickSelection.setCheckAABBTriangles(false);
+                    pickSelection.setCheckOBBTriangles(false);
+                    pickSelection.setCheckAABBs(false);
+                    pickSelection.setCheckOnScreenBoxes(false);
                     pickSelection.setCheckFBOPixels(false);
                     System.out.println("Changed pick selection mode to: SPHERE");
                     break;
                 case 1:
-                    pickSelection.setCheckAABBTriangles(true);
+                    pickSelection.setCheckOBBTriangles(false);
+                    pickSelection.setCheckAABBs(true); // TRUE
+                    pickSelection.setCheckOnScreenBoxes(false);
                     pickSelection.setCheckFBOPixels(false);
-                    System.out.println("Changed pick selection mode to: AABB triangles");
+                    System.out.println("Changed pick selection mode to: AABB");
                     break;
                 case 2:
-                    pickSelection.setCheckAABBTriangles(false);
-                    pickSelection.setCheckFBOPixels(true);
-                    System.out.println("Changed pick selection mode to: FBO pixels");
+                    pickSelection.setCheckOBBTriangles(false);
+                    pickSelection.setCheckAABBs(false);
+                    pickSelection.setCheckOnScreenBoxes(true); // TRUE
+                    pickSelection.setCheckFBOPixels(false);
+                    System.out.println("Changed pick selection mode to: ON-SCREEN BOXES");
+                    break;
+                case 3:
+                    pickSelection.setCheckOBBTriangles(true); // TRUE
+                    pickSelection.setCheckAABBs(false);
+                    pickSelection.setCheckOnScreenBoxes(false);
+                    pickSelection.setCheckFBOPixels(false);
+                    System.out.println("Changed pick selection mode to: OBB TRIANGLES");
+                    break;
+                case 4:
+                    pickSelection.setCheckOBBTriangles(false);
+                    pickSelection.setCheckAABBs(false);
+                    pickSelection.setCheckOnScreenBoxes(false);
+                    pickSelection.setCheckFBOPixels(true); // TRUE
+                    System.out.println("Changed pick selection mode to: FBO PIXELS");
                     break;
             }
         } // change pick selection mode

@@ -21,16 +21,12 @@ public class GameObject extends ModelInstance implements SpatialObject {
 
         public static final int[] values = {NO_FLAGS, VISIBLE, ACTIVE, SELECTED};
 
-        //---------------------------------------------------------------------
-
         public StateFlags() {
         }
 
         public StateFlags(int value) {
             super(value);
         }
-
-        //---------------------------------------------------------------------
 
         @Override
         public int count() {
@@ -42,8 +38,9 @@ public class GameObject extends ModelInstance implements SpatialObject {
             return values;
         }
 
-        //---------------------------------------------------------------------
     } // static final class StateFlags
+
+    //-------------------------------------------------------------------------
 
     protected BoundingBox boundingBox = new BoundingBox();
     protected BoundingBox originalBoundingBox = new BoundingBox();
@@ -52,13 +49,13 @@ public class GameObject extends ModelInstance implements SpatialObject {
     protected Vector3 dimensions = new Vector3();
     protected Vector3 scale = new Vector3(1.0f, 1.0f, 1.0f);
     protected Vector3 tmpVec = new Vector3();
+    protected Quaternion tmpQuat = new Quaternion();
     protected float radius = 0.0f;
     private int selfID = 0;
     private int parentID = 0;
     private String name = "";
     private StateFlags stateFlags = new StateFlags();
     protected boolean isTransformed = false;
-    public Object userObject = null;
 
     //-------------------------------------------------------------------------
 
@@ -90,8 +87,6 @@ public class GameObject extends ModelInstance implements SpatialObject {
         final int n = nodes.size;
         for (int i = 0; i < n; i++)
             nodes.get(i).extendBoundingBox(boundingBox, false);
-
-        //calculateBoundingBox(boundingBox);
         originalBoundingBox.set(boundingBox);
         boundingBox.getCenter(center);
         boundingBox.getDimensions(dimensions);
@@ -126,6 +121,9 @@ public class GameObject extends ModelInstance implements SpatialObject {
     public Vector3 getExtent() {
         return extent;
     }
+
+    @Override
+    public Vector3 getDimensions() { return dimensions; }
 
     @Override
     public float getRadius() {
@@ -260,13 +258,12 @@ public class GameObject extends ModelInstance implements SpatialObject {
     public void setScale(float _x, float _y, float _z) {
         isTransformed = true;
         this.transform.getTranslation(tmpVec);
-        Quaternion rotation = new Quaternion();
-        this.transform.getRotation(rotation);
-        rotation.nor(); // normalize quaternion
+        this.transform.getRotation(tmpQuat);
+        tmpQuat.nor(); // normalize quaternion
         // reset the transformation, scaling first
         this.transform.setToScaling(_x, _y, _z);
         this.transform.setTranslation(tmpVec);
-        this.transform.rotate(rotation);
+        this.transform.rotate(tmpQuat);
 
         scale.x = _x;
         scale.y = _y;
@@ -351,10 +348,9 @@ public class GameObject extends ModelInstance implements SpatialObject {
 
     public Matrix4 setRotation(final Vector3 v1, final Vector3 v2) {
         isTransformed = true;
-        Vector3 translation = new Vector3();
-        transform.getTranslation(translation);
+        transform.getTranslation(tmpVec);
         transform.setToScaling(scale.x, scale.y, scale.z);
-        transform.setTranslation(translation);
+        transform.setTranslation(tmpVec);
         return transform.rotate(v1, v2);
     }
 

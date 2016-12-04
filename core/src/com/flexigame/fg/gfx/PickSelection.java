@@ -12,7 +12,9 @@ import com.flexigame.fg.utils.AbstractFlags;
 import com.flexigame.fg.utils.Vector2i;
 
 /**
- *
+ * Main class for pick selection - supports checking ray intersections with
+ * bounding spheres, axis-aligned boxes, oriented boxes and querying special
+ * framebuffer texture. Rendering to the framebuffer must be done separately.
  */
 public class PickSelection {
 
@@ -24,7 +26,9 @@ public class PickSelection {
         NOT_PICKED,
         PICKED_SPHERE,
         PICKED_AABB,
-        PICKED_PIXEL;
+        PICKED_ON_SCREEN_BOX,
+        PICKED_OBB_TRIANGLES,
+        PICKED_PIXEL; // framebuffer / color texture
 
         public boolean isPicked() {
             return (this.ordinal() != NOT_PICKED.ordinal());
@@ -36,6 +40,14 @@ public class PickSelection {
 
         public boolean isAABB() {
             return (this.ordinal() == PICKED_AABB.ordinal());
+        }
+
+        public boolean isOnScreenBox() {
+            return (this.ordinal() == PICKED_ON_SCREEN_BOX.ordinal());
+        }
+
+        public boolean isOBBTriangles() {
+            return (this.ordinal() == PICKED_OBB_TRIANGLES.ordinal());
         }
 
         public boolean isPixel() {
@@ -51,32 +63,38 @@ public class PickSelection {
         static final int SELECTION_ON_CLICK = 1;
         /* Selection is active even without toggled click */
         static final int SELECTION_ON_HOVER = 2;
-        /* Whether or not to check aabb triangles - may be more accurate
+        /* Whether or not to check Axis-Aligned Bounding Boxes */
+        static final int CHECK_AABBS = 4;
+        /* Whether or not to check on screen boxes */
+        static final int CHECK_ON_SCREEN_BOXES = 8;
+        /* Whether or not to check obb triangles - may be more accurate
          * than picking sphere; AABB is transformed and projected to screen space
          * when using picking box */
-        static final int CHECK_AABB_TRIANGLES = 4;
+        static final int CHECK_OBB_TRIANGLES = 16;
         /* Whether or not to check frame buffer object pixel data (provided externally) */
-        static final int CHECK_FBO_PIXELS = 8;
+        static final int CHECK_FBO_PIXELS = 32;
         /* Whether or not the picker is active */
-        static final int PICKER_ACTIVE = 16;
+        static final int PICKER_ACTIVE = 64;
         /* Group selection mode - basically it means multi-selection mode */
-        static final int GROUP_SELECTION_MODE = 32;
+        static final int GROUP_SELECTION_MODE = 128;
         /* Toggle selection mode - second click deselects;
          * Deselection only occurs on spatial object(!) */
-        static final int TOGGLE_SELECTION_MODE = 64;
+        static final int TOGGLE_SELECTION_MODE = 256;
         /* Whether or not to use the onscreen picking box */
-        static final int USE_PICKING_BOX = 128;
+        static final int USE_PICKING_BOX = 512;
         /* Internal flag marking begin() function execution - set to false on end() */
-        static final int INTERNAL_BEGIN = 256;
+        static final int INTERNAL_BEGIN = 1024;
         /* Whether or not should unselect objects (when picking ray does not collide) */
-        static final int INTERNAL_SHOULD_UNSELECT = 512;
+        static final int INTERNAL_SHOULD_UNSELECT = 2048;
         /* Internal flag - should continue traversing? */
-        static final int INTERNAL_SHOULD_CONTINUE = 1024;
+        static final int INTERNAL_SHOULD_CONTINUE = 4096;
 
         public static final int[] values = {NO_FLAGS, // 0
                 SELECTION_ON_CLICK,
                 SELECTION_ON_HOVER,
-                CHECK_AABB_TRIANGLES,
+                CHECK_AABBS,
+                CHECK_ON_SCREEN_BOXES,
+                CHECK_OBB_TRIANGLES,
                 CHECK_FBO_PIXELS,
                 PICKER_ACTIVE,
                 GROUP_SELECTION_MODE,
@@ -106,7 +124,7 @@ public class PickSelection {
 
     public interface OnSelectionListener {
         void selectionChanged(SpatialObject spatialObject, PickingInfo pickingInfo, boolean selected);
-    }
+    } // interface OnSelectionListener
 
     Array<OnSelectionListener> onSelectionListenersArray = new Array<OnSelectionListener>();
 
@@ -118,7 +136,7 @@ public class PickSelection {
         }
         onSelectionListenersArray.add(onSelectionListener);
         return true;
-    }
+    } // boolean addOnSelectionListener(...)
 
     public boolean removeOnSelectionListener(OnSelectionListener onSelectionListener) {
         if (onSelectionListener == null)
@@ -131,14 +149,18 @@ public class PickSelection {
         return onSelectionListenersArray;
     }
 
-    protected void callOnSelectionListeners(SpatialObject spatialObject, PickingInfo pickingInfo, boolean selected) {
+    protected void callOnSelectionListeners(SpatialObject spatialObject,
+                                            PickingInfo pickingInfo,
+                                            boolean selected) {
         if (spatialObject == null)
             throw new NullPointerException("spatialObject cannot be null");
         for (int i = 0; i < onSelectionListenersArray.size; i++) {
             OnSelectionListener onSelectionListener = onSelectionListenersArray.get(i);
-            onSelectionListener.selectionChanged(spatialObject, pickingInfo, selected); // call!
-        }
-    }
+            onSelectionListener.selectionChanged(spatialObject,
+                    pickingInfo,
+                    selected); // call!
+        } // for each on selection listener
+    } // void callOnSelectionListeners(...)
 
     //-------------------------------------------------------------------------
 
@@ -266,10 +288,6 @@ public class PickSelection {
 
     //-------------------------------------------------------------------------
 
-    public void setOnClick() {
-        this.setOnClick(true);
-    }
-
     public void setOnClick(boolean toggle) {
         stateFlags.set(StateFlags.SELECTION_ON_CLICK, toggle);
         if (toggle)
@@ -278,10 +296,6 @@ public class PickSelection {
 
     public boolean isOnClick() {
         return stateFlags.isToggled(StateFlags.SELECTION_ON_CLICK);
-    }
-
-    public void setOnHover() {
-        this.setOnHover(true);
     }
 
     public void setOnHover(boolean toggle) {
@@ -294,16 +308,28 @@ public class PickSelection {
         return stateFlags.isToggled(StateFlags.SELECTION_ON_HOVER);
     }
 
-    public void setCheckAABBTriangles() {
-        this.setCheckAABBTriangles(true);
+    public void setCheckAABBs(boolean toggle) {
+        stateFlags.set(StateFlags.CHECK_AABBS, toggle);
     }
 
-    public void setCheckAABBTriangles(boolean toggle) {
-        stateFlags.set(StateFlags.CHECK_AABB_TRIANGLES, toggle);
+    public boolean isCheckAABBs() {
+        return stateFlags.isToggled(StateFlags.CHECK_AABBS);
     }
 
-    public boolean isCheckAABBTriangles() {
-        return stateFlags.isToggled(StateFlags.CHECK_AABB_TRIANGLES);
+    public void setCheckOBBTriangles(boolean toggle) {
+        stateFlags.set(StateFlags.CHECK_OBB_TRIANGLES, toggle);
+    }
+
+    public boolean isCheckOBBTriangles() {
+        return stateFlags.isToggled(StateFlags.CHECK_OBB_TRIANGLES);
+    }
+
+    public void setCheckOnScreenBoxes(boolean toggle) {
+        stateFlags.set(StateFlags.CHECK_ON_SCREEN_BOXES, toggle);
+    }
+
+    public boolean isCheckOnScreenBoxes() {
+        return stateFlags.isToggled(StateFlags.CHECK_ON_SCREEN_BOXES);
     }
 
     public void setCheckFBOPixels(boolean toggle) {
@@ -314,20 +340,12 @@ public class PickSelection {
         return stateFlags.isToggled(StateFlags.CHECK_FBO_PIXELS);
     }
 
-    public void setGroupSelectionMode() {
-        this.setGroupSelectionMode(true);
-    }
-
     public void setGroupSelectionMode(boolean toggle) {
         stateFlags.set(StateFlags.GROUP_SELECTION_MODE, toggle);
     }
 
     public boolean isGroupSelectionMode() {
         return stateFlags.isToggled(StateFlags.GROUP_SELECTION_MODE);
-    }
-
-    public void setToggleSelectionMode() {
-        this.setToggleSelectionMode(true);
     }
 
     public void setToggleSelectionMode(boolean toggle) {
@@ -342,8 +360,8 @@ public class PickSelection {
         return stateFlags.isToggled(StateFlags.PICKER_ACTIVE);
     }
 
-    public void usePickingBox() {
-        usePickingBox(true);
+    public void setUsePickingBox(boolean toggle) {
+        stateFlags.set(StateFlags.USE_PICKING_BOX, toggle);
     }
 
     public void usePickingBox(boolean toggle) {
@@ -367,8 +385,6 @@ public class PickSelection {
         // if the mode is on click + group selection + toggle - do nothing
         if (isOnClick() && state) {
             pickPosBegin.set(pickPos);
-            // pickTimeBegin = timesys::exact();
-            //pickTimeStampBegin = TimeUtils.millis();
             pickTimeStampBegin = ((float) TimeUtils.timeSinceMillis(initTimeStamp)) / 1000.0f;
             if (!isToggleSelectionMode())
                 clear(); // this clears selection
@@ -553,12 +569,22 @@ public class PickSelection {
         boolean status = Intersector.intersectRaySphere(this.ray,
                 spatialObject.getCenter(),
                 spatialObject.getRadius(),
-                pickingInfo.intersection), triangleStatus;
+                pickingInfo.intersection), triangleStatus, hasCornerPoints = false;
 
-        if (status && !isCheckAABBTriangles())
+        if (status && !isCheckOBBTriangles())
             pickingInfo.result = Result.PICKED_SPHERE;
 
-        if (status && isCheckAABBTriangles()) {
+        if(isCheckAABBs()) {
+            if(Intersector.intersectRayBoundsFast(this.ray,
+                    spatialObject.getCenter(),
+                    spatialObject.getDimensions())) {
+                // intersected with AABB (not OBB)
+                pickingInfo.result = Result.PICKED_AABB;
+            }
+        }
+
+        if (status && isCheckOBBTriangles()) {
+            // get bounding box of the model in model space!
             BoundingBox boundingBox = spatialObject.getOriginalBoundingBox();
             boundingBox.getCorner000(aabbPoints[0]);
             boundingBox.getCorner001(aabbPoints[1]);
@@ -571,6 +597,7 @@ public class PickSelection {
             for (int i = 0; i < 8; i++) {
                 aabbPoints[i].mul(spatialObject.getTransform());
             } // for each aabb point
+            hasCornerPoints = true; // for further use if needed
             // 12 triangles of the aabb
             for (int i = 0; i < 12; i++) {
                 triangleStatus = Intersector.intersectRayTriangle(this.ray,
@@ -579,31 +606,46 @@ public class PickSelection {
                         aabbPoints[aabbTrisIdx[i][2] - 1],
                         tmpVec);
                 if (triangleStatus) {
-                    pickingInfo.result = Result.PICKED_AABB;
+                    pickingInfo.result = Result.PICKED_OBB_TRIANGLES;
                     pickingInfo.intersection.set(tmpVec);
                     break;
                 }
             } // for each triangle in the aabb
-        }
+        } // isCheckOBBTriangles()
 
-        if (isOnClick() && isUsePickingBox() && this.camera != null) {
-            BoundingBox boundingBox = spatialObject.getOriginalBoundingBox();
-            boundingBox.getCorner000(aabbPoints[0]);
-            boundingBox.getCorner001(aabbPoints[1]);
-            boundingBox.getCorner010(aabbPoints[2]);
-            boundingBox.getCorner011(aabbPoints[3]);
-            boundingBox.getCorner100(aabbPoints[4]);
-            boundingBox.getCorner101(aabbPoints[5]);
-            boundingBox.getCorner110(aabbPoints[6]);
-            boundingBox.getCorner111(aabbPoints[7]);
+        tmpRectangle.x = pickPos.x;
+        tmpRectangle.y = pickPos.y;
+        tmpRectangle.width = 1.0f;
+        tmpRectangle.height = 1.0f;
+
+        if (isOnClick() && isUsePickingBox() || isCheckOnScreenBoxes()) {
             internalAABB.inf();
-            for (int i = 0; i < 8; i++) {
-                aabbPoints[i].mul(spatialObject.getTransform());
-                camera.project(aabbPoints[i]);
-                internalAABB.ext(aabbPoints[i].x,
-                        aabbPoints[i].y,
-                        aabbPoints[i].z);
-            } // for each aabb point
+            BoundingBox boundingBox = spatialObject.getOriginalBoundingBox();
+            if(!hasCornerPoints) {
+                boundingBox.getCorner000(aabbPoints[0]);
+                boundingBox.getCorner001(aabbPoints[1]);
+                boundingBox.getCorner010(aabbPoints[2]);
+                boundingBox.getCorner011(aabbPoints[3]);
+                boundingBox.getCorner100(aabbPoints[4]);
+                boundingBox.getCorner101(aabbPoints[5]);
+                boundingBox.getCorner110(aabbPoints[6]);
+                boundingBox.getCorner111(aabbPoints[7]);
+                for (int i = 0; i < 8; i++) {
+                    aabbPoints[i].mul(spatialObject.getTransform());
+                    camera.project(aabbPoints[i]);
+                    internalAABB.ext(aabbPoints[i].x,
+                            aabbPoints[i].y,
+                            aabbPoints[i].z);
+                } // for each aabb point
+            } else {
+                // already have updated aabbPoints - check aabb triangles is true
+                for (int i = 0; i < 8; i++) {
+                    camera.project(aabbPoints[i]);
+                    internalAABB.ext(aabbPoints[i].x,
+                            aabbPoints[i].y,
+                            aabbPoints[i].z);
+                } // for each aabb point
+            }
             internalAABB.getCenter(tmpVec);
             pickingInfo.center.x = (int) tmpVec.x;
             pickingInfo.center.y = (int) tmpVec.y;
@@ -612,27 +654,38 @@ public class PickSelection {
             pickingInfo.onScreen.y = internalAABB.min.y;
             pickingInfo.onScreen.width = internalAABB.getWidth();
             pickingInfo.onScreen.height = internalAABB.getHeight();
-            pickingInfo.pickBoxOverlaps = pickBox.overlaps(pickingInfo.onScreen);
-            pickingInfo.pickBoxContains = pickBox.contains(pickingInfo.onScreen);
-            boolean boxStatus = pickingInfo.pickBoxOverlaps || pickingInfo.pickBoxContains;
-            if (boxStatus && !isCheckFBOPixels()) {
-                pickingInfo.result = goodPickResult; // force proper selection result
-            } else if (boxStatus && fboPixelChecker != null) {
-                int colorValue = pickingInfo.spatialObject.getSpatialObjectID();
-                PickSelection.rectangleIntersection(tmpRectangle,
-                        pickBox,
-                        pickingInfo.onScreen);
-                //tmpRectangle.set(pickBox);
-                // This function gets now intersection rectangle (needs to detect it)
-                if (fboPixelChecker.isColorInPixels(colorValue, tmpRectangle, false)) {
-                    pickingInfo.result = goodPickResult;
+            if(isUsePickingBox()) {
+                pickingInfo.pickBoxOverlaps = pickBox.overlaps(pickingInfo.onScreen);
+                pickingInfo.pickBoxContains = pickBox.contains(pickingInfo.onScreen);
+                boolean boxStatus = pickingInfo.pickBoxOverlaps || pickingInfo.pickBoxContains;
+                if (boxStatus && !isCheckFBOPixels()) {
+                    pickingInfo.result = goodPickResult; // force proper selection result
+                } else if (boxStatus && fboPixelChecker != null) {
+                    int colorValue = pickingInfo.spatialObject.getSpatialObjectID();
+                    Intersector.intersectRectangles(pickBox,
+                            pickingInfo.onScreen,
+                            tmpRectangle);
+                    // This function gets now intersection rectangle (needs to detect it)
+                    if (fboPixelChecker.isColorInPixels(colorValue, tmpRectangle, false)) {
+                        pickingInfo.result = goodPickResult;
+                    }
+                } // has fbo pixel checker?
+            } else {
+                // check on screen boxes
+                // tmp rectangle is one pixel in size
+                pickingInfo.pickBoxContains = false;
+                pickingInfo.pickBoxOverlaps = false;
+                boolean boxStatus = pickingInfo.onScreen.overlaps(tmpRectangle) || pickingInfo.onScreen.contains(tmpRectangle);
+                if(boxStatus && !isCheckFBOPixels()) {
+                    pickingInfo.result = Result.PICKED_ON_SCREEN_BOX;
+                } else if(boxStatus && fboPixelChecker != null) {
+                    int colorValue = pickingInfo.spatialObject.getSpatialObjectID();
+                    if (fboPixelChecker.isColorInPixels(colorValue, tmpRectangle, false)) {
+                        pickingInfo.result = goodPickResult;
+                    }
                 }
-            } // has fbo pixel checker?
+            }
         } else if (!isUsePickingBox() && isCheckFBOPixels() && fboPixelChecker != null) {
-            tmpRectangle.x = pickPos.x;
-            tmpRectangle.y = pickPos.y;
-            tmpRectangle.width = 1.0f;
-            tmpRectangle.height = 1.0f;
             int colorValue = pickingInfo.spatialObject.getSpatialObjectID();
             if (fboPixelChecker.isColorInPixels(colorValue, tmpRectangle, false)) {
                 pickingInfo.result = goodPickResult;
@@ -785,37 +838,36 @@ public class PickSelection {
 
     public boolean begin() {
         if (stateFlags.isToggled(StateFlags.INTERNAL_BEGIN))
-            return false; // IGNORE
+            return false; // ignore it!
         stateFlags.set(StateFlags.INTERNAL_BEGIN, true);
-        shouldContinue(false); // shouldCheck // internal ? ? ?
-        // isToggle = false;
-        // isGroup = false;
+        shouldContinue(false);
         shouldUnselect(false);
-        // Rectangle used for drawing (Rectangle class) uses bottom left
-        // corner as origin
-        // Also drawing methods use this point as origin (BL corner)
-        // However event reporting uses... Top Left corner
-        // Coordinates are converted in picker position reporting functions
+        // Rectangle used for drawing uses bottom left corner as origin,
+        // Drawing methods also use this point as origin (BL corner).
+        // However input event reporting uses... Top Left corner!
+        // Coordinates are converted in picker position reporting functions.
         goodPickResult = Result.NOT_PICKED;
         refreshPickBoxDimensions();
         if (isOnClick()) {
             shouldContinue(isPickerActive());
-            // isToggle
-            // isGroup
-            // checkBox
-            if ((!isToggleSelectionMode() && !isGroupSelectionMode()) || (isUsePickingBox() && !isToggleSelectionMode()))
+            if ((!isToggleSelectionMode() && !isGroupSelectionMode()) ||
+                    (isUsePickingBox() && !isToggleSelectionMode())) {
                 shouldUnselect(true);
+            }
         } else if (isOnHover()) {
             shouldContinue(true);
-            // isGroup?
             shouldUnselect(true);
         }
 
         if (shouldContinue()) {
             updateRay();
             goodPickResult = Result.PICKED_SPHERE;
-            if (isCheckAABBTriangles())
+            if(isCheckAABBs())
                 goodPickResult = Result.PICKED_AABB;
+            if(isCheckOnScreenBoxes())
+                goodPickResult = Result.PICKED_ON_SCREEN_BOX;
+            if (isCheckOBBTriangles())
+                goodPickResult = Result.PICKED_OBB_TRIANGLES;
             if (isCheckFBOPixels())
                 goodPickResult = Result.PICKED_PIXEL;
         }
@@ -827,12 +879,8 @@ public class PickSelection {
             return false; // IGNORE
         stateFlags.set(StateFlags.INTERNAL_BEGIN, false);
         if (isOnClick()) {
-            // lastSelectedNode.reset()
-            // pLastNode = NULL;
             if (!isPickerActive())
                 pickTimeStampBegin = -1;
-        } else if (isOnHover()) {
-
         }
         return true;
     } // boolean end()
@@ -890,35 +938,4 @@ public class PickSelection {
 
     //-------------------------------------------------------------------------
 
-    public static void rectangleIntersection(Rectangle result, Rectangle r1, Rectangle r2) {
-        int tx1 = (int) r1.x;
-        int ty1 = (int) r1.y;
-        int rx1 = (int) r2.x;
-        int ry1 = (int) r2.y;
-        long tx2 = tx1;
-        tx2 += (int) r1.width;
-        long ty2 = ty1;
-        ty2 += (int) r1.height;
-        long rx2 = rx1;
-        rx2 += (int) r2.width;
-        long ry2 = ry1;
-        ry2 += (int) r2.height;
-        if (tx1 < rx1) tx1 = rx1;
-        if (ty1 < ry1) ty1 = ry1;
-        if (tx2 > rx2) tx2 = rx2;
-        if (ty2 > ry2) ty2 = ry2;
-        tx2 -= tx1;
-        ty2 -= ty1;
-        // tx2,ty2 will never overflow (they will never be
-        // larger than the smallest of the two source w,h)
-        // they might underflow, though...
-        if (tx2 < Integer.MIN_VALUE) tx2 = Integer.MIN_VALUE;
-        if (ty2 < Integer.MIN_VALUE) ty2 = Integer.MIN_VALUE;
-        result.x = tx1;
-        result.y = ty1;
-        result.width = (int) tx2;
-        result.height = (int) ty2;
-    } // rectangleIntersection(...)
-
-    //-------------------------------------------------------------------------
 } // class PickSelection

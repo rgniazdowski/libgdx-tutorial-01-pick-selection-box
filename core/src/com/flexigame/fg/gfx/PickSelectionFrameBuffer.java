@@ -78,14 +78,11 @@ public class PickSelectionFrameBuffer {
         // should reinitialize texture with new size?
         // this can be really inefficient if the screen size changes often, like
         // when resizing using mouse pointer. Use delay?
-
         frameBufferObject = Gdx.gl20.glGenFramebuffer();
         Gdx.gl20.glBindFramebuffer(GL20.GL_FRAMEBUFFER, frameBufferObject);
 
         {
-            texture = new Texture(
-                    width, height,
-                    format);
+            texture = new Texture(width, height, format);
             texture.setFilter(Texture.TextureFilter.Nearest,
                     Texture.TextureFilter.Nearest);
             texture.setWrap(Texture.TextureWrap.ClampToEdge,
@@ -96,8 +93,7 @@ public class PickSelectionFrameBuffer {
         renderBufferObject = Gdx.gl20.glGenRenderbuffer();
         Gdx.gl20.glBindRenderbuffer(GL20.GL_RENDERBUFFER, renderBufferObject);
         Gdx.gl20.glRenderbufferStorage(GL20.GL_RENDERBUFFER,
-                GL20.GL_DEPTH_COMPONENT16,
-                width, height);
+                GL20.GL_DEPTH_COMPONENT16, width, height);
         Gdx.gl20.glBindRenderbuffer(GL20.GL_RENDERBUFFER, 0);
 
         // attach the texture and the render buffer to the frame buffer
@@ -122,7 +118,7 @@ public class PickSelectionFrameBuffer {
             byteBuffer = BufferUtils.newByteBuffer(width * height * pixelSize);
             bytePixels = new byte[width * height * pixelSize];
         }
-    } // void setScreenDimensions(...)
+    } // void initialize(...)
 
     //-------------------------------------------------------------------------
 
@@ -169,11 +165,11 @@ public class PickSelectionFrameBuffer {
     }
 
     public int computePositionX(int position) {
-        return (int)(position / (float) screenWidth * (float) width);
+        return (int) (position / (float) screenWidth * (float) width);
     }
 
     public int computePositionY(int position) {
-        return (int)(position / (float) screenHeight * (float) height);
+        return (int) (position / (float) screenHeight * (float) height);
     }
 
     public float computePositionX(float position) {
@@ -187,17 +183,17 @@ public class PickSelectionFrameBuffer {
     //-------------------------------------------------------------------------
 
     public void refreshPixelBuffer(int x, int y, int w, int h) {
-        if(x < 0 || y < 0 || w < 0 || h < 0) {
+        if (x < 0 || y < 0 || w < 0 || h < 0) {
             throw new IllegalArgumentException("position and size parameters cannot be less than 0");
         }
         Gdx.gl20.glBindFramebuffer(GL20.GL_FRAMEBUFFER, frameBufferObject);
         Gdx.gl20.glPixelStorei(GL20.GL_PACK_ALIGNMENT, 4);
-        if(x+w > width)
+        if (x + w > width)
             w = width - x;
-        if(y+h > height)
+        if (y + h > height)
             h = height - y;
         int length = w * h * pixelSize;
-        if(length > bytePixels.length)
+        if (length > bytePixels.length)
             length = bytePixels.length; // protect against overflow (throw?)
         byteBuffer.position(0);
         Gdx.gl.glReadPixels(x, y, w, h,
@@ -205,7 +201,7 @@ public class PickSelectionFrameBuffer {
         byteBuffer.position(0);
         byteBuffer.get(bytePixels, 0, length);
         Gdx.gl20.glBindFramebuffer(GL20.GL_FRAMEBUFFER, 0);
-    } // void readPixels(...)
+    } // void refreshPixelBuffer(...)
 
     //-------------------------------------------------------------------------
 
