@@ -702,6 +702,7 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
     //-------------------------------------------------------------------------
 
     int debugDrawCode = 0;
+    int pickModeCode = 2; // fbo pixels as starting mode
 
     @Override
     public boolean keyDown(int keycode) {
@@ -720,6 +721,54 @@ public class MyGdxPickSelectionDemo extends ApplicationAdapter implements InputP
                 isKeyPressed(Input.Keys.SHIFT_LEFT) ||
                 isKeyPressed(Input.Keys.CONTROL_LEFT))
             noModKeys = false;
+        if (keycode == Input.Keys.G && noModKeys) {
+            pickSelection.usePickingBox(!pickSelection.isUsePickingBox());
+            if (pickSelection.isUsePickingBox()) {
+                System.out.println("Pick selection is using picking box.");
+            } else {
+                System.out.println("Pick selection won't use picking box.");
+            }
+        }
+        if (keycode == Input.Keys.M && noModKeys) {
+            // pick selection mode
+            // 0 - default (sphere only)
+            // 1 - aabb triangles
+            // 2 - FBO pixels
+            pickModeCode++;
+            if (pickModeCode > 2)
+                pickModeCode = 0;
+            switch (pickModeCode) {
+                case 0:
+                    pickSelection.setCheckAABBTriangles(false);
+                    pickSelection.setCheckFBOPixels(false);
+                    System.out.println("Changed pick selection mode to: SPHERE");
+                    break;
+                case 1:
+                    pickSelection.setCheckAABBTriangles(true);
+                    pickSelection.setCheckFBOPixels(false);
+                    System.out.println("Changed pick selection mode to: AABB triangles");
+                    break;
+                case 2:
+                    pickSelection.setCheckAABBTriangles(false);
+                    pickSelection.setCheckFBOPixels(true);
+                    System.out.println("Changed pick selection mode to: FBO pixels");
+                    break;
+            }
+        } // change pick selection mode
+        if (keycode == Input.Keys.T && noModKeys) {
+            if (drawAABBTriangles == false && drawAABBCornerPoints == false) {
+                drawAABBTriangles = true;
+            } else if (drawAABBTriangles == true && drawAABBCornerPoints == false) {
+                drawAABBTriangles = false;
+                drawAABBCornerPoints = true;
+            } else if (drawAABBTriangles == false && drawAABBCornerPoints == true) {
+                drawAABBTriangles = true;
+                drawAABBCornerPoints = true;
+            } else {
+                drawAABBTriangles = false;
+                drawAABBCornerPoints = false;
+            }
+        } // aabb points / triangles
         if (keycode == Input.Keys.B && noModKeys) {
             // Bounding sphere / bounding box
             // 0 - nothing
