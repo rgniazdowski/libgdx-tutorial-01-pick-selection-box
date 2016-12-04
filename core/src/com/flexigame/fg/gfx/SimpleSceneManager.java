@@ -294,6 +294,10 @@ public class SimpleSceneManager implements Disposable {
         return camera;
     }
 
+    public ShapeRenderer getShapeRenderer() {
+        return shapeRenderer;
+    }
+
     public ModelBatch getModelBatch() {
         return modelBatch;
     }
